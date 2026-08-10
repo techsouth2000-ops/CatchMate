@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CatchFinder - Fishing App</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .app { display: flex; flex-direction: column; height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .header { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); padding: 1.5rem 1rem 0.5rem; box-shadow: 0 2px 12px rgba(102, 126, 234, 0.15); }
+        .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+        .header-title { font-size: 28px; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 8px 14px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; transition: transform 0.2s; }
+        .header-btn:hover { transform: translateY(-2px); }
+        .location-display { font-size: 13px; color: #667eea; font-weight: 500; margin-bottom: 0.75rem; }
+        .tabs { display: flex; gap: 8px; padding: 0 1rem 1rem; border-bottom: 1px solid #f0f0f0; }
+        .tab { padding: 8px 16px; border: none; background: transparent; font-size: 14px; font-weight: 500; cursor: pointer; color: #999; border-bottom: 2px solid transparent; transition: all 0.3s; }
+        .tab.active { color: #667eea; border-bottom-color: #667eea; }
+        .content { flex: 1; overflow-y: auto; padding: 1.5rem 1rem; }
+        .map-section { height: 280px; background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%); border-radius: 16px; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15); }
+        .radar-overlay { position: absolute; width: 100%; height: 100%; opacity: 0.6; background: radial-gradient(circle at 50% 50%, rgba(100, 150, 255, 0.3) 0%, rgba(100, 150, 255, 0.15) 50%, transparent 100%); }
+        .map-markers { position: absolute; width: 100%; height: 100%; z-index: 10; }
+        .marker { position: absolute; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .marker:hover { transform: scale(1.15); }
+        .marker.pier { background: linear-gradient(135deg, #0066CC, #004FA8); }
+        .marker.dock { background: linear-gradient(135deg, #00AA66, #008852); }
+        .marker.bank { background: linear-gradient(135deg, #CC6600, #994400); }
+        .marker.boat { background: linear-gradient(135deg, #FF6600, #CC5500); }
+        .user-marker { background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4), inset 0 0 0 2px white; }
+        .radar-label { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9); padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 600; color: #667eea; }
+        .conditions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+        .condition-card { background: white; padding: 14px; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .condition-label { font-size: 11px; color: #999; text-transform: uppercase; font-weight: 600; margin-bottom: 6px; }
+        .condition-value { font-size: 20px; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .section-title { font-size: 18px; font-weight: 700; color: #1a1a1a; margin-bottom: 12px; }
+        .fish-grid { display: grid; gap: 12px; }
+        .fish-card { background: white; border-radius: 14px; padding: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); transition: all 0.3s; border: 1px solid #f0f0f0; }
+        .fish-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.12); }
+        .fish-name { font-weight: 600; font-size: 15px; color: #1a1a1a; margin-bottom: 4px; }
+        .fish-score { font-size: 13px; color: #667eea; font-weight: 600; margin-bottom: 8px; }
+        .fish-reason { font-size: 12px; color: #666; margin-bottom: 10px; }
+        .baits { display: flex; flex-wrap: wrap; gap: 6px; }
+        .bait-tag { background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)); color: #667eea; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 500; border: 1px solid rgba(102, 126, 234, 0.2); }
+        .spot-grid { display: grid; gap: 12px; }
+        .spot-card { background: white; border-radius: 16px; padding: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); transition: all 0.3s; }
+        .spot-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15); }
+        .spot-card.saved { border: 2px solid #667eea; }
+        .spot-name { font-size: 16px; font-weight: 600; color: #1a1a1a; }
+        .spot-type { display: inline-block; background: linear-gradient(135deg, #667eea, #764ba2); color: white; font-size: 10px; font-weight: 600; padding: 4px 10px; border-radius: 12px; text-transform: uppercase; margin-bottom: 8px; }
+        .spot-description { font-size: 13px; color: #666; margin: 8px 0; }
+        .empty-state { text-align: center; padding: 2rem 1rem; }
+        .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.6; }
+        .empty-text { font-size: 15px; font-weight: 500; color: #1a1a1a; }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="header">
+            <div class="header-top">
+                <div class="header-title">🎣 CatchFinder</div>
+                <button class="header-btn" onclick="updateLocation()">📍 Update Location</button>
+            </div>
+            <div class="location-display" id="location-display">Loading location...</div>
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('nearby')">📍 Nearby</button>
+                <button class="tab" onclick="switchTab('saved')">🔖 Saved</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div id="nearby-tab">
+                <div class="map-section">
+                    <div class="radar-overlay"></div>
+                    <div class="radar-label">📡 Radar</div>
+                    <div class="map-markers" id="map-markers"></div>
+                </div>
+                <div class="conditions" id="conditions"></div>
+                <div class="section-title">🎣 Top catches today</div>
+                <div class="fish-grid" id="fish-list"></div>
+                <div style="margin-top: 2rem;">
+                    <div class="section-title">📍 Fishing hotspots</div>
+                    <div class="spot-grid" id="spots-section"></div>
+                </div>
+            </div>
+
+            <div id="saved-tab" style="display: none;">
+                <div id="saved-spots-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let appState = {
+            location: null,
+            fishingData: null,
+            savedSpots: JSON.parse(localStorage.getItem('savedSpots') || '[]'),
+            currentTab: 'nearby'
+        };
+
+        function switchTab(tab) {
+            appState.currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.closest('.tab').classList.add('active');
+            document.getElementById('nearby-tab').style.display = tab === 'nearby' ? 'block' : 'none';
+            document.getElementById('saved-tab').style.display = tab === 'saved' ? 'block' : 'none';
+            if (tab === 'saved') renderSavedSpots();
+        }
+
+        function saveSpot(id, name, type) {
+            const spot = { id, name, type, savedAt: new Date().toISOString() };
+            if (!appState.savedSpots.find(s => s.id === id)) {
+                appState.savedSpots.push(spot);
+                localStorage.setItem('savedSpots', JSON.stringify(appState.savedSpots));
+                document.querySelectorAll(`[data-spot-id="${id}"] .save-btn`).forEach(btn => {
+                    btn.classList.add('saved');
+                    btn.textContent = '♥';
+                });
+            }
+        }
+
+        function removeSpot(id) {
+            appState.savedSpots = appState.savedSpots.filter(s => s.id !== id);
+            localStorage.setItem('savedSpots', JSON.stringify(appState.savedSpots));
+            renderSavedSpots();
+        }
+
+        function renderSavedSpots() {
+            if (appState.savedSpots.length === 0) {
+                document.getElementById('saved-spots-list').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔖</div>
+                        <div class="empty-text">No saved spots yet</div>
+                    </div>
+                `;
+                return;
+            }
+            let html = '<div class="spot-grid">';
+            appState.savedSpots.forEach(spot => {
+                html += `
+                    <div class="spot-card saved" data-spot-id="${spot.id}">
+                        <div style="display: flex; justify-content: space-between;">
+                            <div>
+                                <div class="spot-name">${spot.name}</div>
+                                <div class="spot-type">${spot.type}</div>
+                            </div>
+                            <button class="save-btn" onclick="removeSpot(${spot.id})" style="background:none; border:none; font-size:20px; cursor:pointer;">♥</button>
+                        </div>
+                        <div style="font-size: 12px; color: #999;">Saved ${new Date(spot.savedAt).toLocaleDateString()}</div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            document.getElementById('saved-spots-list').innerHTML = html;
+        }
+
+        function updateLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    appState.location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    document.getElementById('location-display').textContent = `${appState.location.lat.toFixed(4)}°, ${appState.location.lng.toFixed(4)}°`;
+                    loadData();
+                }, () => {
+                    appState.location = { lat: 25.7617, lng: -80.1918 };
+                    document.getElementById('location-display').textContent = 'Miami, FL (default)';
+                    loadData();
+                });
+            }
+        }
+
+        async function loadData() {
+            try {
+                const response = await fetch("https://api.anthropic.com/v1/messages", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: "claude-sonnet-4-20250514",
+                        max_tokens: 3000,
+                        messages: [{
+                            role: "user",
+                            content: `Generate comprehensive fishing data for ${appState.location.lat}, ${appState.location.lng}. Return ONLY valid JSON with no markdown formatting:
+{
+  "weather":{"temp":72,"windMph":8,"condition":"Partly Cloudy"},
+  "tide":{"stage":"Rising","height":3.2},
+  "hotspots":[{"id":1,"name":"Pier Marina","lat":25.7617,"lng":-80.1918,"type":"pier","description":"Popular pier with good shade and facilities"},{"id":2,"name":"Sandy Beach Dock","lat":25.7500,"lng":-80.2000,"type":"dock","description":"Recent reports of tarpon activity"},{"id":3,"name":"Mangrove Bank","lat":25.7700,"lng":-80.1800,"type":"bank","description":"Great for snook in early morning"}],
+  "topFish":[{"name":"Tarpon","score":9,"reason":"Peak feeding with rising tide","baits":["Live mullet","Mackerel strips","Shrimp"],"depth":8,"waterType":"Saltwater"},{"name":"Snook","score":8,"reason":"Early morning bite near structures","baits":["Live shrimp","Sardines","Small shiners"],"depth":6,"waterType":"Saltwater"},{"name":"Redfish","score":7,"reason":"Good in shallow flats right now","baits":["Live mud crabs","Ghost shrimp","Mullet"],"depth":4,"waterType":"Saltwater"}],
+  "weatherForecast":{"hourly":[{"time":"10 AM","temp":72,"icon":"☀️","wind":8},{"time":"12 PM","temp":75,"icon":"☀️","wind":10},{"time":"2 PM","temp":77,"icon":"⛅","wind":12}],"daily":[{"day":"Today","high":78,"low":70,"wind":10,"icon":"☀️"},{"day":"Tomorrow","high":76,"low":69,"wind":8,"icon":"⛅"}]},
+  "tideForecast":{"highTide1":{"time":"2:30 PM","height":3.8},"highTide2":{"time":"3:00 AM","height":3.6},"lowTide1":{"time":"8:45 AM","height":1.2},"lowTide2":{"time":"9:15 PM","height":1.4}}
+}`
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                const text = data.content.find(c => c.type === "text")?.text || "";
+                const match = text.match(/\{[\s\S]*\}/);
+                const parsed = JSON.parse(match[0]);
+                appState.fishingData = parsed;
+                render();
+            } catch (e) {
+                console.error('Error:', e);
+                document.getElementById('conditions').innerHTML = '<div style="color: red; padding: 1rem;">Error loading data. Make sure you have an Anthropic API key set.</div>';
+            }
+        }
+
+        function render() {
+            if (!appState.fishingData) return;
+            const data = appState.fishingData;
+
+            document.getElementById('map-markers').innerHTML = `
+                <div class="marker user-marker" style="left: 45%; top: 45%;" title="Your location"></div>
+                ${data.hotspots.map((s, i) => `
+                    <div class="marker ${s.type}" style="left: ${30 + i*12}%; top: ${20 + (i%3)*25}%;" 
+                         onclick="saveSpot(${s.id}, '${s.name}', '${s.type}')" title="${s.name}"></div>
+                `).join('')}
+            `;
+
+            document.getElementById('conditions').innerHTML = `
+                <div class="condition-card">
+                    <div class="condition-label">Temperature</div>
+                    <div class="condition-value">${data.weather.temp}°F</div>
+                </div>
+                <div class="condition-card">
+                    <div class="condition-label">Wind</div>
+                    <div class="condition-value">${data.weather.windMph} mph</div>
+                </div>
+                <div class="condition-card">
+                    <div class="condition-label">Tide</div>
+                    <div class="condition-value">${data.tide.stage}</div>
+                </div>
+            `;
+
+            let fishHtml = '';
+            data.topFish.forEach(fish => {
+                fishHtml += `
+                    <div class="fish-card">
+                        <div class="fish-name">${fish.name}</div>
+                        <div class="fish-score">🎯 ${fish.score}/10 - ${fish.reason}</div>
+                        <div style="font-size: 11px; color: #999; margin: 8px 0;">Depth: ${fish.depth}ft • ${fish.waterType}</div>
+                        <div class="baits">
+                            ${fish.baits.map(b => `<span class="bait-tag">${b}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('fish-list').innerHTML = fishHtml;
+
+            document.getElementById('spots-section').innerHTML = `
+                <div class="spot-grid">
+                    ${data.hotspots.map(spot => {
+                        const isSaved = appState.savedSpots.find(s => s.id === spot.id);
+                        return `
+                            <div class="spot-card ${isSaved ? 'saved' : ''}" data-spot-id="${spot.id}">
+                                <div style="display: flex; justify-content: space-between; align-items: start;">
+                                    <div>
+                                        <div class="spot-name">${spot.name}</div>
+                                        <div class="spot-type">${spot.type}</div>
+                                    </div>
+                                    <button class="save-btn" onclick="saveSpot(${spot.id}, '${spot.name}', '${spot.type}')" style="background:none; border:none; font-size:20px; cursor:pointer; ${isSaved ? 'color: #667eea;' : ''}">
+                                        ${isSaved ? '♥' : '♡'}
+                                    </button>
+                                </div>
+                                <div class="spot-description">${spot.description}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        updateLocation();
+    </script>
+</body>
+</html>
