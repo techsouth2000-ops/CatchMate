@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CatchMate - Detailed Fishing Guide</title>
+    <title>CatchMate - Advanced Fishing Guide</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-control-geocoder/2.4.0/Control.Geocoder.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-control-geocoder/2.4.0/Control.Geocoder.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -19,7 +21,7 @@
         html, body { height: 100%; width: 100%; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--light); }
         .container { display: flex; height: 100vh; }
-        .sidebar { width: 450px; background: white; display: flex; flex-direction: column; box-shadow: 2px 0 12px rgba(0,0,0,0.1); }
+        .sidebar { width: 450px; background: white; display: flex; flex-direction: column; box-shadow: 2px 0 12px rgba(0,0,0,0.1); z-index: 100; }
         .map-area { flex: 1; position: relative; }
         #map { width: 100%; height: 100%; }
         .header { padding: 18px; border-bottom: 1px solid var(--border); }
@@ -49,19 +51,12 @@
         .best-time { background: #f0fdf4; border-left: 3px solid var(--secondary); padding: 8px; margin-top: 8px; border-radius: 6px; font-size: 11px; }
         .best-title { font-weight: 700; color: var(--secondary); margin-bottom: 2px; }
         .best-text { color: #666; line-height: 1.5; }
-        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; overflow-y: auto; }
-        .modal.active { display: flex; }
-        .modal-content { background: white; border-radius: 12px; width: 90%; max-width: 700px; margin: 20px auto; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-        .modal-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: white; }
-        .modal-title { font-size: 22px; font-weight: 700; }
-        .modal-close { background: none; border: none; font-size: 28px; cursor: pointer; color: #999; }
-        .modal-body { padding: 20px; }
-        .species-list { display: flex; flex-direction: column; gap: 12px; }
-        .species-card { background: var(--light); padding: 14px; border-radius: 8px; border-left: 4px solid var(--primary); cursor: pointer; transition: all 0.2s; }
-        .species-card:hover { background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .species-rank { font-size: 12px; font-weight: 700; color: var(--primary); }
-        .species-name { font-size: 16px; font-weight: 700; color: var(--dark); margin: 4px 0; }
-        .species-note { font-size: 12px; color: #666; }
+        .map-controls { position: absolute; top: 10px; right: 10px; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 500; }
+        .layer-toggle { display: flex; flex-direction: column; gap: 6px; }
+        .layer-btn { padding: 8px 12px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s; }
+        .layer-btn:hover { background: #0052a3; }
+        .layer-btn.active { background: var(--secondary); }
+        .leaflet-control-layers { display: none !important; }
         @media (max-width: 768px) {
             .container { flex-direction: column; }
             .sidebar { width: 100%; height: 45%; }
@@ -74,8 +69,8 @@
         <!-- Sidebar -->
         <div class="sidebar">
             <div class="header">
-                <div class="logo">🎣 CatchMate</div>
-                <div class="instruction">📍 Click anywhere on map to see detailed fishing guides for that location</div>
+                <div class="logo">🎣 CatchMate Pro</div>
+                <div class="instruction">📍 Click anywhere on Florida map to see fishing guides • Use map controls for satellite view & depth layers</div>
             </div>
             <div class="content" id="sidebar-content">
                 <div class="empty-state">
@@ -87,30 +82,115 @@
         </div>
 
         <!-- Map -->
-        <div class="map-area" id="map"></div>
-    </div>
-
-    <!-- Modal -->
-    <div class="modal" id="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title" id="modal-title">Species Guide</div>
-                <button class="modal-close" onclick="closeModal()">&times;</button>
+        <div class="map-area" id="map">
+            <!-- Map Controls -->
+            <div class="map-controls">
+                <div class="layer-toggle">
+                    <button class="layer-btn active" onclick="switchLayer('osm')">🗺️ Map</button>
+                    <button class="layer-btn" onclick="switchLayer('satellite')">🛰️ Satellite</button>
+                    <button class="layer-btn" onclick="switchLayer('hybrid')">🌐 Hybrid</button>
+                    <button class="layer-btn" onclick="toggleDepth()">🌊 Depths</button>
+                    <button class="layer-btn" onclick="toggleRadar()">🌪️ Radar</button>
+                </div>
             </div>
-            <div class="modal-body" id="modal-body"></div>
         </div>
     </div>
 
     <script>
         const map = L.map('map').setView([27.5, -81.5], 7);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
+
+        // Base layers
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap',
+            maxZoom: 19
+        });
+
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© Esri',
+            maxZoom: 19
+        });
+
+        const hybridLayer = L.tileLayer.wms('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© Esri',
+            maxZoom: 19
+        });
+
+        // Water depth contours layer (GeoServer or custom)
+        const depthLayer = L.tileLayer('https://tiles.gebco.net/gebco_latest/gebco_latest.png', {
+            attribution: 'GEBCO',
+            maxZoom: 15,
+            opacity: 0.6
+        });
+
+        // Weather radar layer (NOAA)
+        const radarLayer = L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png', {
+            attribution: 'NOAA',
+            maxZoom: 15,
+            opacity: 0.7
+        });
+
+        osmLayer.addTo(map);
+        let currentLayer = 'osm';
+        let depthLayerActive = false;
+        let radarLayerActive = false;
+
+        function switchLayer(layerName) {
+            // Remove all base layers
+            map.eachLayer(layer => {
+                if (layer instanceof L.TileLayer && layer !== depthLayer && layer !== radarLayer) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // Add selected layer
+            if (layerName === 'osm') {
+                osmLayer.addTo(map);
+                currentLayer = 'osm';
+            } else if (layerName === 'satellite') {
+                satelliteLayer.addTo(map);
+                currentLayer = 'satellite';
+            } else if (layerName === 'hybrid') {
+                hybridLayer.addTo(map);
+                currentLayer = 'hybrid';
+            }
+
+            // Update button states
+            document.querySelectorAll('.layer-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function toggleDepth() {
+            if (depthLayerActive) {
+                map.removeLayer(depthLayer);
+                depthLayerActive = false;
+                event.target.classList.remove('active');
+            } else {
+                depthLayer.addTo(map);
+                depthLayerActive = true;
+                event.target.classList.add('active');
+            }
+        }
+
+        function toggleRadar() {
+            if (radarLayerActive) {
+                map.removeLayer(radarLayer);
+                radarLayerActive = false;
+                event.target.classList.remove('active');
+            } else {
+                radarLayer.addTo(map);
+                radarLayerActive = true;
+                event.target.classList.add('active');
+            }
+        }
 
         let mapMarker = null;
 
-        // Comprehensive fishing database
-        const fishingData = {
+        // COMPREHENSIVE FLORIDA FISHING DATABASE
+        const fishingLocations = {
             'moore-haven': {
                 name: 'Moore Haven',
+                lat: 26.8,
+                lng: -81.1,
                 water: 'Lake Okeechobee',
                 species: [
                     {
@@ -244,13 +324,442 @@
                         ],
                         bestTime: { season: 'Year-round (best warm months)', time: 'NIGHT FISHING peak (dusk-dawn)', temp: 'Active 65-85°F', moon: 'Any (nocturnal)' }
                     }
-                ],
-                guides: [
-                    { name: 'Bass Flats & Beyond - Capt. John Larsen', rating: '4.9/5', link: 'https://fishingbooker.com' },
-                    { name: 'On The Hook Guide Fishing', rating: '4.8/5', link: 'https://fishingbooker.com' }
+                ]
+            },
+            'tampa-bay': {
+                name: 'Tampa Bay',
+                lat: 27.78,
+                lng: -82.65,
+                water: 'Tampa Bay Estuary',
+                species: [
+                    {
+                        rank: '#1 Most Popular',
+                        name: 'Redfish (Red Drum)',
+                        emoji: '🐟',
+                        difficulty: 'Intermediate',
+                        score: 9,
+                        description: 'Copper-colored powerhouse, 4-20 lbs. Sight fishing in shallow flats.',
+                        baits: [
+                            {
+                                name: 'Live Shrimp',
+                                size: '3-4 inches',
+                                colors: 'Gray/tan when fresh',
+                                rigging: 'FREE-LINE OR LIGHT BOBBER • 20-30 lb leader → #1 circle hook → shrimp under dorsal fin or through tail',
+                                technique: 'Sight fish shallow flats at sunrise → cast to tailing reds → let shrimp swim naturally → watch for aggressive strike → firm hook set',
+                                attract: 'Redfish actively hunt shrimp. Natural swimming = dinner bell. Reds in 1-3 ft clear water = best spotting.'
+                            },
+                            {
+                                name: 'Live Mullet',
+                                size: '4-6 inches',
+                                colors: 'Silver with dark back',
+                                rigging: 'LIGHT TEXAS RIG • 1/16-1/8 oz weight • 3/0 hook → mullet through lips',
+                                technique: 'Cast near grass edges and oyster bars → slow retrieve with pauses → twitch occasionally → wait for powerful strikes',
+                                attract: 'Redfish eat everything. Live mullet = natural prey. Vibrations = aggressive response.'
+                            }
+                        ],
+                        bestTime: { season: 'Year-round, best Sept-April', time: 'Sunrise-9am (sight fishing), late evening', temp: '65-80°F optimal', moon: 'Low tide (fish concentrated)' }
+                    },
+                    {
+                        rank: '#2 Most Popular',
+                        name: 'Spotted Sea Trout',
+                        emoji: '🐟',
+                        difficulty: 'Easy',
+                        score: 8,
+                        description: 'School fish, 15-25 inches. Fast action, good eating.',
+                        baits: [
+                            {
+                                name: 'Live Shrimp',
+                                size: '2-3 inches (small)',
+                                colors: 'Gray with light stripe',
+                                rigging: 'BOBBER + SMALL HOOK • Bobber 2-4 ft • Light 1/32 oz jig or #4 hook → shrimp under dorsal',
+                                technique: 'Cast to deep channels and grass edges → let shrimp suspend • Trout school = multiple hookups • Work current breaks',
+                                attract: 'Trout hunt small shrimp constantly. Natural presentation = easy strikes. Schools feed aggressively.'
+                            },
+                            {
+                                name: 'Small Jigs (1/16-1/8 oz)',
+                                colors: 'White, chartreuse, pink',
+                                size: '1.5-2.5 inches with shrimp tail',
+                                rigging: 'JIG + SHRIMP • 15 lb leader → 1/8 oz jig → thread shrimp on jig hook',
+                                technique: 'Cast and retrieve with steady bounce → occasional sharp jerks → work structure edges',
+                                attract: 'Jig + shrimp = irresistible. Bouncing action triggers strikes. Trout hit hard and run fast.'
+                            }
+                        ],
+                        bestTime: { season: 'Year-round, peak fall-winter', time: 'Early morning, late afternoon-dusk', temp: '65-75°F best', moon: 'Any phase' }
+                    },
+                    {
+                        rank: '#3 Most Popular',
+                        name: 'Snook',
+                        emoji: '🐟',
+                        difficulty: 'Intermediate',
+                        score: 8,
+                        description: 'Aggressive fighter, 15-30+ lbs. Structure-oriented predator.',
+                        baits: [
+                            {
+                                name: 'Live Shrimp or Mullet',
+                                size: '3-4 inches',
+                                colors: 'Live/active coloring',
+                                rigging: 'WIRE LEADER (snook have sharp teeth!) • 40 lb mono leader → #1 circle hook → bait through lips',
+                                technique: 'Cast to dock pilings and mangrove edges → let bait sit briefly → slow retrieve • Snook ambush = violent strike • FIRM hook set required',
+                                attract: 'Snook are structure hunters. Bait near their hiding spots = predatory response. They strike fast and hard.'
+                            },
+                            {
+                                name: 'Small Tarpon Plugs or Swim Baits',
+                                size: '3-4 inches',
+                                colors: 'Silver, chartreuse, natural',
+                                rigging: 'WIRE LEADER + LOOP KNOT • 40 lb mono leader → loop knot on plug for natural action',
+                                technique: 'Cast to structure (docks, mangrove, rocks) → retrieve with erratic twitches → pause near cover → snook attack from ambush',
+                                attract: 'Snook are territorial predators. Movement near their zone = trigger for aggressive strikes.'
+                            }
+                        ],
+                        bestTime: { season: 'Year-round, best April-June (spawn)', time: 'Dawn, dusk, night tide changes', temp: '70-80°F optimal', moon: 'New moon (night fishing)' }
+                    },
+                    {
+                        rank: '#4 Most Popular',
+                        name: 'Flounder',
+                        emoji: '🐟',
+                        difficulty: 'Easy',
+                        score: 7,
+                        description: 'Bottom dweller, 12-20 inches. Flat, white meat, ambush predator.',
+                        baits: [
+                            {
+                                name: 'Live Shrimp or Small Mullet',
+                                size: '3-4 inches for shrimp, 4-5" for mullet',
+                                rigging: 'SIMPLE RIG • Slip sinker on line → swivel → 12" leader → #2-4 hook → bait hooked lightly',
+                                technique: 'Cast to sandy/muddy bottom near structure → let bait rest on bottom • Flounder wait for prey to pass overhead → SET on feel',
+                                attract: 'Flounder sit still waiting for prey. Live bait vibrations = dinner bell. Bottom structure = hunting ground.'
+                            },
+                            {
+                                name: 'Small Swimbaits or Paddle-Tail Plastics',
+                                size: '3-4 inches',
+                                colors: 'White, pearl, chartreuse',
+                                rigging: '1/8-1/4 oz jig head + plastic bait',
+                                technique: 'Bounce along sandy bottom near grass edges • Slow drag with occasional lifts • Flounder hit hard when interested',
+                                attract: 'Injured baitfish behavior = flounder food. Dragging action along bottom = strike trigger.'
+                            }
+                        ],
+                        bestTime: { season: 'Year-round, best May-Oct', time: 'Early morning, dusk, tidal changes', temp: '70-78°F optimal', moon: 'Any phase' }
+                    },
+                    {
+                        rank: '#5 Most Popular',
+                        name: 'Tarpon',
+                        emoji: '🐟',
+                        difficulty: 'Advanced',
+                        score: 9,
+                        description: 'Silver King, 50-200+ lbs. Legendary fighter, aerial acrobat.',
+                        baits: [
+                            {
+                                name: 'Live Mullet or Mackerel',
+                                size: '6-8 inches (large)',
+                                colors: 'Fresh silvery',
+                                rigging: 'HEAVY 60-80 lb MONO LEADER • 8/0-10/0 circle hook → mullet through both lips or behind gills',
+                                technique: 'Free-line large mullet or cast to rolling tarpon at sunrise → let bait swim naturally • Hold tight when tarpon takes • MULTIPLE HOOK SETS',
+                                attract: 'Tarpon are trophy predators. Large, active baitfish = dinner. They charge with explosive power.'
+                            },
+                            {
+                                name: 'Live Crabs (Blue or Stone)',
+                                size: 'Large, 2-3 inch shell',
+                                rigging: '60-80 lb mono leader • 8/0 hook through eye socket',
+                                technique: 'Cast to tarpon pods at dawn → allow crab to swim on bottom • Tarpon hunt by feel and vibration',
+                                attract: 'Tarpon hunt large crustaceans. Movement + size = strike response. This is advanced fishing requiring skill.'
+                            }
+                        ],
+                        bestTime: { season: 'April-June (peak), available year-round', time: 'Sunrise-10am best (sight fishing rolling tarpon)', temp: '75-85°F optimal', moon: 'New moon (night fishing possible)' }
+                    }
+                ]
+            },
+            'key-west': {
+                name: 'Key West',
+                lat: 24.55,
+                lng: -81.78,
+                water: 'Gulf of Mexico',
+                species: [
+                    {
+                        rank: '#1 Most Popular',
+                        name: 'Tarpon',
+                        emoji: '🐟',
+                        difficulty: 'Advanced',
+                        score: 9,
+                        description: 'Silver King, 50-200+ lbs. World-famous destination.',
+                        baits: [
+                            {
+                                name: 'Live Mullet',
+                                size: '6-8 inches',
+                                colors: 'Fresh silver',
+                                rigging: 'HEAVY 60-80 lb mono leader • 8/0-10/0 circle hook • mullet through lips',
+                                technique: 'Free-line mullet or cast to tarpon rolls at sunrise • Let bait swim naturally • IMMEDIATE hard hook set on take',
+                                attract: 'Tarpon feed on large baitfish. Natural swimming action = predatory response. Multiple casts to same tarpon often needed.'
+                            }
+                        ],
+                        bestTime: { season: 'May-October (peak), year-round possible', time: 'Sunrise-10am (sight fish rolling tarpon)', temp: '80-85°F optimal', moon: 'New moon best' }
+                    },
+                    {
+                        rank: '#2 Most Popular',
+                        name: 'Permit',
+                        emoji: '🐟',
+                        difficulty: 'Advanced',
+                        score: 9,
+                        description: 'Ghost-like flats fish, 20-50 lbs. Ultra-wary, challenging.',
+                        baits: [
+                            {
+                                name: 'Live Crabs (Small)',
+                                size: '1-2 inches',
+                                colors: 'Blue crab (natural)',
+                                rigging: 'LIGHT 30-40 lb leader • #2-4 hook through shell/body • keep crab alive',
+                                technique: 'Sight fish shallow flats • Cast crab ahead of cruising permit • Stay silent - they bolt at boat noise',
+                                attract: 'Permit hunt crabs on flats. Natural bait near fish = strike IF presentation is perfect. Patience essential.'
+                            },
+                            {
+                                name: 'Shrimp or Crab Flies',
+                                size: 'Size #4-6 flies',
+                                colors: 'Tan, white, chartreuse',
+                                rigging: '30 lb mono leader + fly casting setup',
+                                technique: 'Fly fishing only. Cast ahead of tailing permit • Strip fly slowly • Permit are incredibly selective',
+                                attract: 'Fly presentation requires extreme skill. Permit feed visually = must be perfectly placed.'
+                            }
+                        ],
+                        bestTime: { season: 'April-October (best), year-round possible', time: 'Sunrise-10am shallow flats', temp: '75-85°F', moon: 'Low tide (fish visible)' }
+                    },
+                    {
+                        rank: '#3 Most Popular',
+                        name: 'Bonefish',
+                        emoji: '🐟',
+                        difficulty: 'Intermediate',
+                        score: 8,
+                        description: 'Gray Ghost, 4-12 lbs. Super-fast runner, sight fishing.',
+                        baits: [
+                            {
+                                name: 'Live Shrimp (small)',
+                                size: '1-2 inches',
+                                colors: 'Gray when fresh',
+                                rigging: 'LIGHT 15-20 lb leader • #6-8 hook through shrimp tail or body',
+                                technique: 'Sight fish shallow water (1-3 ft) • Cast to tailing bonefish • Slight twitches trigger take • They run FAST',
+                                attract: 'Bonefish hunt shrimp constantly on flats. Small live bait = trigger. They flee at speed when hooked.'
+                            },
+                            {
+                                name: 'Small Shrimp Flies',
+                                size: '#4-6 flies',
+                                colors: 'Tan, white, brown',
+                                rigging: 'Fly fishing - 15 lb mono leader + fly rod',
+                                technique: 'Sight casting to tailing bonefish • Strip fly with quick jerks • Bonefish are addictive to catch',
+                                attract: 'Bonefish see prey clearly in shallow water. Accurate fly placement = hook-ups. Speed of strikes is legendary.'
+                            }
+                        ],
+                        bestTime: { season: 'Year-round, best March-May', time: 'Morning flood tide, afternoon outgoing', temp: 'Any, 70-85°F best', moon: 'Low tide (sight fishing)' }
+                    },
+                    {
+                        rank: '#4 Most Popular',
+                        name: 'Grouper (Red/Gag)',
+                        emoji: '🐟',
+                        difficulty: 'Intermediate',
+                        score: 8,
+                        description: 'Deep structure dweller, 10-50+ lbs. Excellent eating.',
+                        baits: [
+                            {
+                                name: 'Live Mullet or Mackerel',
+                                size: '4-6 inches',
+                                colors: 'Silver/fresh coloring',
+                                rigging: 'HEAVY RIG • 50 lb leader • 4/0-6/0 hook • mullet hooked through lips',
+                                technique: 'Fish deep structure (reefs, wrecks, 30-80 ft) • Drop bait to bottom • Grouper takes hard from below',
+                                attract: 'Grouper ambush from rocky hidey-holes. Baitfish at their structure = aggressive strikes. Hold tight for battle.'
+                            },
+                            {
+                                name: 'Dead Squid or Cut Mullet',
+                                size: '3-4 inch chunks',
+                                rigging: 'HEAVY BOTTOM RIG • Slip sinker on line → 50 lb leader → 4/0 hook',
+                                technique: 'Chum and drop chunks to deep structure • Grouper smell and feel bait • Set hard when you feel weight',
+                                attract: 'Grouper hunt by smell in deep water. Bait chunks create scent clouds = attractant. Deep holes = their lair.'
+                            }
+                        ],
+                        bestTime: { season: 'Year-round', time: 'Early morning, late afternoon', temp: 'Any temperature', moon: 'Any phase' }
+                    },
+                    {
+                        rank: '#5 Most Popular',
+                        name: 'Mackerel (King/Spanish)',
+                        emoji: '🐟',
+                        difficulty: 'Easy',
+                        score: 7,
+                        description: 'Fast schooling fish, 5-30 lbs. Lots of action.',
+                        baits: [
+                            {
+                                name: 'Live Mackerel or Mullet',
+                                size: '3-5 inches',
+                                colors: 'Fresh silvery',
+                                rigging: 'WIRE BITE LEADER (mackerel teeth!) • 30-40 lb mono → 6/0 hook → bait through lips',
+                                technique: 'Troll live bait or cast near structure • Mackerel attack from below = violent hits',
+                                attract: 'Mackerel are aggressive hunters. Fast-moving bait = reflex strikes. School of fish = multiple hookups.'
+                            },
+                            {
+                                name: 'Small Metal Spoons or Plugs',
+                                size: '2-3 inches',
+                                colors: 'Chrome, silver, gold',
+                                rigging: 'Wire bite leader + plug',
+                                technique: 'Fast retrieve with occasional pauses • Mackerel chase flashing • Work structure edges and drop-offs',
+                                attract: 'Shiny moving baits = predatory response. Speed triggers aggression. Schooling makes them competitive.'
+                            }
+                        ],
+                        bestTime: { season: 'Year-round, peak spring-fall', time: 'Morning and late afternoon', temp: '70-85°F optimal', moon: 'Any phase' }
+                    }
+                ]
+            },
+            'everglades': {
+                name: 'Everglades / 10000 Islands',
+                lat: 25.95,
+                lng: -81.35,
+                water: 'Everglades Estuary',
+                species: [
+                    {
+                        rank: '#1 Most Popular',
+                        name: 'Tarpon',
+                        emoji: '🐟',
+                        difficulty: 'Advanced',
+                        score: 9,
+                        description: 'Backcountry runs, 50-150+ lbs. Sight fishing in mangrove channels.',
+                        baits: [
+                            {
+                                name: 'Live Mullet',
+                                size: '6-8 inches',
+                                colors: 'Fresh silver',
+                                rigging: 'HEAVY 60-80 lb mono leader • 8/0-10/0 circle hook',
+                                technique: 'Free-line or cast to tarpon in narrow mangrove channels • Let mullet swim naturally • MULTIPLE HOOK SETS on strike',
+                                attract: 'Tarpon hunt live baitfish in tight spaces. Natural swimming = predatory response. Explosive strikes in confined areas.'
+                            }
+                        ],
+                        bestTime: { season: 'April-June (peak), year-round', time: 'Sunrise-10am (sight casting)', temp: '78-85°F optimal', moon: 'New moon' }
+                    },
+                    {
+                        rank: '#2 Most Popular',
+                        name: 'Snook',
+                        emoji: '🐟',
+                        difficulty: 'Intermediate',
+                        score: 9,
+                        description: 'Aggressive fighter, 15-40+ lbs. Mangrove-loving ambush predator.',
+                        baits: [
+                            {
+                                name: 'Live Shrimp or Mullet',
+                                size: '3-4 inches',
+                                colors: 'Live/fresh coloring',
+                                rigging: 'WIRE LEADER (40 lb mono) • #1 circle hook • bait through lips',
+                                technique: 'Cast to mangrove root edges and undercut banks • Let bait sit • Snook attack from ambush = FIRM HOOK SET',
+                                attract: 'Snook are structure predators. Bait near mangroves = territory invasion = aggressive response. They hide and hunt.'
+                            },
+                            {
+                                name: 'Small Plugs or Swimbaits',
+                                size: '3-4 inches',
+                                colors: 'Natural, silver, chartreuse',
+                                rigging: 'Wire leader + loop knot for natural action',
+                                technique: 'Cast tight to mangrove structure • Erratic retrieves with pauses • Snook chase wounded prey patterns',
+                                attract: 'Movement near shelter = trigger. Snook are programmed to strike at active prey near their hideouts.'
+                            }
+                        ],
+                        bestTime: { season: 'April-June (spawn), year-round', time: 'Tide changes, dawn/dusk, night', temp: '75-82°F', moon: 'Any phase' }
+                    },
+                    {
+                        rank: '#3 Most Popular',
+                        name: 'Redfish',
+                        emoji: '🐟',
+                        difficulty: 'Intermediate',
+                        score: 8,
+                        description: 'Copper-colored hunter, 4-20 lbs. Tailing schools in shallow water.',
+                        baits: [
+                            {
+                                name: 'Live Shrimp or Crabs',
+                                size: '2-4 inches',
+                                colors: 'Gray/tan shrimp, live crabs',
+                                rigging: 'FREE-LINE OR BOBBER • 20-30 lb leader • #1 circle hook',
+                                technique: 'Sight fish tailing reds in 1-3 ft water • Cast to visible fish • Let prey swim naturally',
+                                attract: 'Reds actively hunt shrimp/crabs on flats. Natural prey movement = dinner. Schools feed aggressively together.'
+                            },
+                            {
+                                name: 'Live Mullet (small)',
+                                size: '4-6 inches',
+                                colors: 'Fresh silver',
+                                rigging: 'LIGHT TEXAS RIG • 1/16-1/8 oz weight optional',
+                                technique: 'Cast near oyster bars and grass edges • Slow retrieve with twitches • Reds hit hard',
+                                attract: 'Reds hunt all baitfish. Live mullet = natural prey. Shallow water = aggressive feeding.'
+                            }
+                        ],
+                        bestTime: { season: 'Year-round, best Oct-April', time: 'Sunrise-9am, late afternoon', temp: '70-80°F', moon: 'Low tide' }
+                    },
+                    {
+                        rank: '#4 Most Popular',
+                        name: 'Spotted Sea Trout',
+                        emoji: '🐟',
+                        difficulty: 'Easy',
+                        score: 7,
+                        description: 'Schools in backcountry, 14-24 inches. Consistent action.',
+                        baits: [
+                            {
+                                name: 'Live Shrimp (small)',
+                                size: '2-3 inches',
+                                colors: 'Gray/transparent',
+                                rigging: 'BOBBER + SMALL HOOK • 15 lb leader • #4-6 hook under dorsal',
+                                technique: 'Cast to grass edges and deeper channels → suspend under bobber • Trout school = multiple hookups',
+                                attract: 'Trout hunt small shrimp in groups. Natural presentation = feeding response. Schools stay active.'
+                            },
+                            {
+                                name: 'Small Jigs (1/16 oz)',
+                                colors: 'White, chartreuse, pink',
+                                size: 'With shrimp tail',
+                                rigging: '1/16 oz jig + shrimp tail',
+                                technique: 'Cast and bounce retrieve • Work structure edges • Trout hit readily',
+                                attract: 'Jigging action = baitfish behavior. Shrimp tail = natural prey. Easy to trigger strikes.'
+                            }
+                        ],
+                        bestTime: { season: 'Year-round, peak Sept-April', time: 'Early morning, afternoon', temp: '70-78°F', moon: 'Any phase' }
+                    },
+                    {
+                        rank: '#5 Most Popular',
+                        name: 'Black Drum',
+                        emoji: '🐟',
+                        difficulty: 'Intermediate',
+                        score: 7,
+                        description: 'Bottom feeder, 5-50+ lbs. Crustacean hunter with crushing mouth.',
+                        baits: [
+                            {
+                                name: 'Live Crabs (small-medium)',
+                                size: '2-3 inches',
+                                colors: 'Blue crab preferred',
+                                rigging: 'BOTTOM RIG • Slip sinker → 30 lb leader → #2 hook through crab shell',
+                                technique: 'Fish bottom near structure (pilings, oyster bars, rocks) • Drum feel vibrations and smell • Hard pull = bite',
+                                attract: 'Drum hunt crustaceans on bottom. Live crab = natural prey. They crush shells with powerful pharyngeal jaws.'
+                            },
+                            {
+                                name: 'Clams or Conchs',
+                                size: 'Whole or chunks',
+                                rigging: 'BOTTOM RIG • Fresh clam on #2-4 hook',
+                                technique: 'Anchor near structure • Let bait sit on bottom • Drum cruise feeding grounds • Vibrations trigger takes',
+                                attract: 'Drum are bottom foragers. Hard shell prey = adapted mouth. Natural bottom food = easy dinner.'
+                            }
+                        ],
+                        bestTime: { season: 'Year-round, peak Oct-May', time: 'Early morning, dusk', temp: '70-78°F', moon: 'Any phase' }
+                    }
                 ]
             }
         };
+
+        function getDistanceBetweenCoords(lat1, lng1, lat2, lng2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function getNearestLocation(lat, lng) {
+            let nearest = null;
+            let minDistance = Infinity;
+
+            Object.values(fishingLocations).forEach(loc => {
+                const distance = getDistanceBetweenCoords(lat, lng, loc.lat, loc.lng);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearest = loc;
+                }
+            });
+
+            return nearest || fishingLocations['moore-haven'];
+        }
 
         map.on('click', function(e) {
             const lat = e.latlng.lat;
@@ -259,8 +768,7 @@
             if (mapMarker) map.removeLayer(mapMarker);
             mapMarker = L.circleMarker([lat, lng], { radius: 8, fillColor: '#ff6b35', color: 'white', weight: 2, opacity: 1, fillOpacity: 0.8 }).addTo(map);
 
-            // Get location (hardcoded for Moore Haven, expandable to other areas)
-            const location = fishingData['moore-haven'];
+            const location = getNearestLocation(lat, lng);
             displayLocation(location, lat, lng);
         });
 
@@ -339,10 +847,6 @@
             const icon = element.querySelector('.toggle-icon');
             details.classList.toggle('active');
             icon.textContent = details.classList.contains('active') ? '▲' : '▼';
-        }
-
-        function closeModal() {
-            document.getElementById('modal').classList.remove('active');
         }
     </script>
 </body>
