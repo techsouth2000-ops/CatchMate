@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CatchMate — Florida Fishing Intel</title>
+<title>Bitecast — Florida Fishing Intel</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--pri:#0b5fa5;--sec:#0a8f5f;--acc:#e2622c;--dark:#16202b;--bg:#f4f6f8;--bd:#dce3ea;--mut:#6b7885}
@@ -89,6 +90,40 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .tidet{font-size:13px;font-weight:650}
 .tidesub{font-size:10px;color:var(--mut);margin-top:2px}
 .tidein{font-size:11px;color:var(--mut);font-weight:600}
+.acct{flex-shrink:0;padding:7px 12px;font-size:11px;font-weight:700;border:1px solid var(--pri);background:#fff;color:var(--pri);border-radius:20px;cursor:pointer}
+.acct.in{background:var(--pri);color:#fff}
+.fab{position:absolute;left:50%;transform:translateX(-50%);bottom:16px;z-index:500;padding:12px 20px;font-size:13px;font-weight:700;border:0;border-radius:30px;background:var(--acc);color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.3);cursor:pointer}
+.modal{display:none;position:fixed;inset:0;background:rgba(12,20,28,.55);z-index:2000;align-items:flex-end;justify-content:center}
+.modal.on{display:flex}
+.sheet{background:#fff;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:20px 18px 32px}
+@media(min-width:821px){.modal{align-items:center}.sheet{border-radius:14px;max-height:84vh}}
+.mtitle{font-size:19px;font-weight:700;margin-bottom:4px}
+.msub{font-size:12px;color:var(--mut);line-height:1.6;margin-bottom:16px}
+.fld{margin-bottom:12px}
+.fld label{display:block;font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+.fld input,.fld select,.fld textarea{width:100%;padding:11px 12px;font-size:15px;border:1px solid var(--bd);border-radius:8px;background:#fff;font-family:inherit;-webkit-appearance:none}
+.fld textarea{min-height:72px;resize:vertical}
+.fld .hint2{font-size:10px;color:var(--mut);margin-top:4px;line-height:1.5}
+.row2{display:flex;gap:10px}.row2>*{flex:1}
+.btn{width:100%;padding:13px;font-size:14px;font-weight:700;border:0;border-radius:9px;background:var(--pri);color:#fff;cursor:pointer;margin-top:6px}
+.btn:disabled{opacity:.5}
+.btn.alt{background:#fff;color:var(--pri);border:1px solid var(--bd)}
+.btn.danger{background:#fff;color:#c0392b;border:1px solid #f0d0cc}
+.linky{background:none;border:0;color:var(--pri);font-size:12px;font-weight:600;cursor:pointer;padding:8px 0;text-decoration:underline}
+.msg{font-size:12px;padding:9px 11px;border-radius:7px;margin-bottom:12px;line-height:1.5}
+.msg.bad{background:#fff3ec;color:#9a3412;border:1px solid #ffd9c4}
+.msg.good{background:#f0fbf5;color:#0a6b48;border:1px solid #c6ecd9}
+.prev{width:100%;max-height:220px;object-fit:contain;border-radius:8px;background:#11202b;margin-top:8px}
+.cc{border:1px solid var(--bd);border-radius:10px;margin-bottom:10px;overflow:hidden}
+.ccimg{width:100%;max-height:260px;object-fit:contain;background:#11202b;display:block}
+.ccb{padding:11px 12px}
+.ccu{font-size:12px;font-weight:700}
+.ccs{font-size:14px;font-weight:700;margin:3px 0}
+.ccm{font-size:11px;color:var(--mut);line-height:1.6}
+.ccact{display:flex;gap:14px;align-items:center;margin-top:8px;font-size:12px}
+.ccact button{background:none;border:0;color:var(--mut);font-size:12px;font-weight:600;cursor:pointer;padding:0}
+.ccact button.liked{color:var(--acc)}
+.chip{display:inline-block;font-size:9px;font-weight:700;padding:3px 7px;border-radius:20px;background:#eef3f7;color:var(--mut);margin-right:5px}
 .obs img{width:46px;height:46px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--bd)}
 .on1{font-size:13px;font-weight:600}
 .on2{font-size:10px;color:var(--mut);margin-top:2px}
@@ -106,14 +141,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <div class="wrap">
   <div class="side">
     <div class="head">
-      <div class="logo">🎣 CatchMate</div>
-      <div class="tag">Tap any water in Florida — real records, real tackle <span style="color:#0a8f5f;font-weight:700">· v6 tides+bite</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div>
+          <div class="logo">🎣 Bitecast</div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v8 community</span></div>
+        </div>
+        <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
+      </div>
     </div>
     <div class="body" id="out">
       <div class="empty">
         <div class="ic">🗺️</div>
-        <div style="font-weight:600;color:var(--dark);margin-bottom:6px">Tap the map</div>
-        <div style="font-size:12px">Lake, river, bay, flat, inlet or open Gulf — anywhere.</div>
+        <div style="font-weight:600;color:var(--dark);margin-bottom:6px">Where do you want to fish?</div>
+        <div style="font-size:12px">Tap a lake, river, bay, flat, inlet or the open Gulf.</div>
       </div>
     </div>
   </div>
@@ -125,12 +165,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <button class="cbtn loc" id="b-loc" onclick="locateMe()">📍 Locate me</button>
       <button class="cbtn" id="b-diag" onclick="runDiagnostics()">🩺 Test</button>
     </div>
+    <button class="fab" id="fab" onclick="openLogCatch()">＋ Log a catch</button>
   </div>
+</div>
+
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="sheet" id="sheet"></div>
 </div>
 
 <script>
 /* ---------------------------------------------------------------
-   CatchMate
+   Bitecast
    Water body ID : Overpass API (OpenStreetMap)
    Fish records  : iNaturalist API (real georeferenced observations)
    Tackle data   : curated, keyed to species actually returned
@@ -874,14 +919,14 @@ async function tidesFor(lat,lng){
   st.forEach(s=>{const d=haversineKm(lat,lng,s.lat,s.lng); if(d<bd){bd=d;best=s;}});
   if(!best||bd>120) return {station:null,dist:bd,preds:[]};
   const today=new Date(), tmr=new Date(today.getTime()+DAYMS);
-  const url=`${CO_OPS}/api/prod/datagetter?product=predictions&application=CatchMate`+
+  const url=`${CO_OPS}/api/prod/datagetter?product=predictions&application=Bitecast`+
     `&begin_date=${ymd(today)}&end_date=${ymd(tmr)}&datum=MLLW&station=${best.id}`+
     `&time_zone=lst_ldt&units=english&interval=hilo&format=json`;
   const d=await getJSON(url,20000);
   const preds=(d.predictions||[]).map(p=>({t:new Date(p.t.replace(' ','T')),v:parseFloat(p.v),hi:p.type==='H'}));
   let temp=null;
   try{
-    const w=await getJSON(`${CO_OPS}/api/prod/datagetter?product=water_temperature&application=CatchMate`+
+    const w=await getJSON(`${CO_OPS}/api/prod/datagetter?product=water_temperature&application=Bitecast`+
       `&date=latest&station=${best.id}&time_zone=lst_ldt&units=english&format=json`,12000);
     if(w.data&&w.data[0]) temp=parseFloat(w.data[0].v);
   }catch(e){}
@@ -946,6 +991,394 @@ function condHTML(){
   return h;
 }
 
+/* ============================================================
+   BITECAST ACCOUNTS & COMMUNITY  (Supabase)
+   The anon key is meant to live in client code. It is only safe
+   because row-level security is enabled on every table — see
+   bitecast-schema.sql. Never put the service_role key here.
+   ============================================================ */
+const SUPABASE_URL = 'https://ufubcigcoqlpmcmcsneq.supabase.co';
+// Leave blank to be prompted once in the app; the key is then remembered
+// on this device. Or paste it between the quotes to ship it for everyone.
+const SUPABASE_ANON_KEY = '';
+
+let sb=null, ME=null, MYPROFILE=null;
+
+function anonKey(){
+  return SUPABASE_ANON_KEY || localStorage.getItem('bc_key') || '';
+}
+function initSupabase(){
+  const key=anonKey();
+  if(!key || !window.supabase) return false;
+  try{
+    sb=window.supabase.createClient(SUPABASE_URL,key,{auth:{persistSession:true,autoRefreshToken:true}});
+    sb.auth.onAuthStateChange((_e,session)=>{ ME=session?session.user:null; loadMyProfile(); paintAcct(); });
+    sb.auth.getSession().then(({data})=>{ ME=data.session?data.session.user:null; loadMyProfile(); paintAcct(); });
+    return true;
+  }catch(e){ console.warn('supabase init failed',e); return false; }
+}
+async function loadMyProfile(){
+  if(!sb||!ME){ MYPROFILE=null; return; }
+  const {data}=await sb.from('profiles').select('*').eq('id',ME.id).maybeSingle();
+  MYPROFILE=data||null; paintAcct();
+}
+function paintAcct(){
+  const b=document.getElementById('acctbtn'); if(!b) return;
+  if(ME){ b.textContent='@'+((MYPROFILE&&MYPROFILE.username)||'me'); b.classList.add('in'); }
+  else { b.textContent='Sign in'; b.classList.remove('in'); }
+}
+
+/* ---------- modal plumbing ---------- */
+function openModal(html){
+  document.getElementById('sheet').innerHTML=html;
+  document.getElementById('modal').classList.add('on');
+}
+function closeModal(){ document.getElementById('modal').classList.remove('on'); }
+function msg(t,cls){ return `<div class="msg ${cls||'bad'}">${esc(t)}</div>`; }
+function setMsg(t,cls){
+  const s=document.getElementById('formmsg');
+  if(s) s.innerHTML = t?`<div class="msg ${cls||'bad'}">${esc(t)}</div>`:'';
+}
+
+/* ---------- first-run key setup ---------- */
+function openSetup(){
+  openModal(`
+    <div class="mtitle">Connect Bitecast</div>
+    <div class="msub">Paste your Supabase <b>anon / public</b> key. It is stored on this device only.
+      This key is designed to be public — your data is protected by the database security policies, not by hiding it.
+      Never paste the <b>service_role</b> key.</div>
+    <div id="formmsg"></div>
+    <div class="fld">
+      <label>Anon public key</label>
+      <textarea id="k" placeholder="eyJhbGciOiJIUzI1NiIs..."></textarea>
+      <div class="hint2">Supabase → Settings → API Keys → anon / public</div>
+    </div>
+    <button class="btn" onclick="saveKey()">Connect</button>
+  `);
+}
+function saveKey(){
+  const v=(document.getElementById('k').value||'').trim();
+  if(v.length<20) return setMsg('That does not look like a key. It should be a long string.');
+  if(v.includes('service_role')) return setMsg('That is the service_role key — it bypasses all security. Use the anon / public key.');
+  localStorage.setItem('bc_key',v);
+  if(initSupabase()){ closeModal(); openAccount(); }
+  else setMsg('Could not connect with that key.');
+}
+
+/* ---------- sign in / sign up ---------- */
+function openAccount(){
+  if(!anonKey()||!sb) return openSetup();
+  if(ME) return openProfile();
+  openSignIn();
+}
+function openSignIn(){
+  openModal(`
+    <div class="mtitle">Welcome back</div>
+    <div class="msub">Sign in to log catches and see what other anglers are landing.</div>
+    <div id="formmsg"></div>
+    <div class="fld"><label>Email</label><input id="em" type="email" autocomplete="email" inputmode="email"></div>
+    <div class="fld"><label>Password</label><input id="pw" type="password" autocomplete="current-password"></div>
+    <button class="btn" id="go" onclick="doSignIn()">Sign in</button>
+    <button class="linky" onclick="openSignUp()">New here? Create an account</button>
+  `);
+}
+async function doSignIn(){
+  const b=document.getElementById('go'); b.disabled=true; setMsg('');
+  const {error}=await sb.auth.signInWithPassword({
+    email:document.getElementById('em').value.trim(),
+    password:document.getElementById('pw').value
+  });
+  b.disabled=false;
+  if(error) return setMsg(error.message);
+  closeModal();
+}
+function openSignUp(){
+  const yr=new Date().getFullYear();
+  openModal(`
+    <div class="mtitle">Create your account</div>
+    <div class="msub">You must be 13 or older to use Bitecast.</div>
+    <div id="formmsg"></div>
+    <div class="fld"><label>Username</label><input id="un" autocapitalize="none" autocomplete="username" placeholder="letters, numbers, underscore">
+      <div class="hint2">3–20 characters. This is what other anglers see.</div></div>
+    <div class="fld"><label>Email</label><input id="em" type="email" inputmode="email" autocomplete="email"></div>
+    <div class="fld"><label>Password</label><input id="pw" type="password" autocomplete="new-password">
+      <div class="hint2">At least 6 characters.</div></div>
+    <div class="fld"><label>Birth year</label><input id="by" type="number" inputmode="numeric" min="1900" max="${yr-13}" placeholder="e.g. 2008">
+      <div class="hint2">Used only for the age check. Under-18 accounts never share exact fishing locations.</div></div>
+    <button class="btn" id="go" onclick="doSignUp()">Create account</button>
+    <button class="linky" onclick="openSignIn()">I already have an account</button>
+  `);
+}
+async function doSignUp(){
+  const un=(document.getElementById('un').value||'').trim();
+  const em=(document.getElementById('em').value||'').trim();
+  const pw=document.getElementById('pw').value;
+  const by=parseInt(document.getElementById('by').value,10);
+  const yr=new Date().getFullYear();
+  if(!/^[a-zA-Z0-9_]{3,20}$/.test(un)) return setMsg('Username must be 3–20 characters: letters, numbers or underscore.');
+  if(!em.includes('@')) return setMsg('Enter a valid email address.');
+  if(!pw||pw.length<6) return setMsg('Password must be at least 6 characters.');
+  if(!by||by<1900||by>yr-13) return setMsg('You must be at least 13 years old to sign up.');
+  const b=document.getElementById('go'); b.disabled=true; setMsg('');
+  const {error}=await sb.auth.signUp({email:em,password:pw,
+    options:{data:{username:un,display_name:un,birth_year:String(by)}}});
+  b.disabled=false;
+  if(error) return setMsg(error.message);
+  setMsg('Account created. If email confirmation is on, check your inbox before signing in.','good');
+  setTimeout(()=>{ closeModal(); }, 1800);
+}
+async function openProfile(){
+  const p=MYPROFILE||{};
+  const minor = p.birth_year && p.birth_year > new Date().getFullYear()-18;
+  openModal(`
+    <div class="mtitle">@${esc(p.username||'you')}</div>
+    <div class="msub">${p.catch_count||0} catch${(p.catch_count||0)===1?'':'es'} logged${minor?' · location always fuzzed on your posts':''}</div>
+    <div id="formmsg"></div>
+    <button class="btn" onclick="closeModal();openLogCatch()">Log a catch</button>
+    <button class="btn alt" onclick="closeModal();setTab('feed');render()">See the community feed</button>
+    <button class="btn danger" onclick="doSignOut()">Sign out</button>
+  `);
+}
+async function doSignOut(){ await sb.auth.signOut(); closeModal(); }
+
+/* ---------- photo handling ---------- */
+function shrinkImage(file,maxPx){
+  return new Promise((res,rej)=>{
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const sc=Math.min(1,(maxPx||1600)/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b=>b?res(b):rej(new Error('could not process image')),'image/jpeg',0.85);
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('could not read that image'));};
+    img.src=url;
+  });
+}
+let PENDING_PHOTO=null;
+async function pickPhoto(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  try{
+    PENDING_PHOTO=await shrinkImage(f,1600);
+    const pv=document.getElementById('pv');
+    pv.src=URL.createObjectURL(PENDING_PHOTO); pv.style.display='block';
+  }catch(e){ setMsg(e.message); }
+}
+
+/* ---------- log a catch ---------- */
+function openLogCatch(){
+  if(!anonKey()||!sb) return openSetup();
+  if(!ME) return openSignIn();
+  const st=state||{};
+  if(st.lat==null) return openModal(`<div class="mtitle">Pick the spot first</div>
+     <div class="msub">Tap the map where you caught it, then log the catch. That way Bitecast can record the water body and conditions with it.</div>
+     <button class="btn" onclick="closeModal()">OK</button>`);
+  const guesses=(st.counts||[]).map(c=>c.taxon&&(c.taxon.preferred_common_name||c.taxon.name)).filter(Boolean).slice(0,12);
+  const known=Object.keys(T).map(k=>({k,label:Object.keys(ALIAS).find(a=>ALIAS[a]===k)||k}));
+  PENDING_PHOTO=null;
+  openModal(`
+    <div class="mtitle">Log a catch</div>
+    <div class="msub">📍 ${esc(st.name||'this spot')} · conditions are recorded automatically.</div>
+    <div id="formmsg"></div>
+    <div class="fld"><label>Species</label>
+      <input id="sp" list="splist" placeholder="start typing…" autocapitalize="words">
+      <datalist id="splist">
+        ${guesses.map(g=>`<option value="${esc(titleCase(g))}">`).join('')}
+        ${known.map(k=>`<option value="${esc(titleCase(k.label))}">`).join('')}
+      </datalist>
+      <div class="hint2">${guesses.length?'Suggestions come from what is recorded near this spot.':''}</div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>Length (in)</label><input id="len" type="number" inputmode="decimal" step="0.5"></div>
+      <div class="fld"><label>Weight (lb)</label><input id="wt" type="number" inputmode="decimal" step="0.1"></div>
+    </div>
+    <div class="fld"><label>Bait or lure</label><input id="bait" placeholder="live shrimp, gold spoon…"></div>
+    <div class="fld"><label>Notes</label><textarea id="notes" placeholder="how it went down"></textarea></div>
+    <div class="fld"><label>Photo</label>
+      <input id="ph" type="file" accept="image/*" onchange="pickPhoto(this)">
+      <img id="pv" class="prev" style="display:none" alt="">
+    </div>
+    <div class="fld"><label>Released?</label>
+      <select id="rel"><option value="1">Released</option><option value="0">Kept</option></select>
+    </div>
+    <div class="fld"><label>Location shown to others</label>
+      <select id="prec">
+        <option value="fuzzed" selected>Approximate — within about a mile</option>
+        <option value="exact">Exact spot</option>
+        <option value="hidden">Do not show location</option>
+      </select>
+      <div class="hint2">Approximate is the default so your spot stays yours. Under-18 accounts are always approximate.</div>
+    </div>
+    <button class="btn" id="go" onclick="doLogCatch()">Post catch</button>
+  `);
+}
+async function doLogCatch(){
+  const st=state||{};
+  const species=(document.getElementById('sp').value||'').trim();
+  if(!species) return setMsg('Which species was it?');
+  const b=document.getElementById('go'); b.disabled=true; b.textContent='Posting…'; setMsg('');
+  try{
+    let photo_path=null;
+    if(PENDING_PHOTO){
+      const name=`${ME.id}/${crypto.randomUUID()}.jpg`;
+      const {error:upErr}=await sb.storage.from('catch-photos')
+        .upload(name,PENDING_PHOTO,{contentType:'image/jpeg',upsert:false});
+      if(upErr) throw upErr;
+      photo_path=name;
+    }
+    // capture the conditions this catch happened in
+    const sol=solunar(st.lat,st.lng);
+    let tide_state=null;
+    if(st.tide&&st.tide.preds&&st.tide.preds.length){
+      const nxt=st.tide.preds.find(p=>p.t>=new Date());
+      if(nxt){
+        const mins=Math.round((nxt.t-new Date())/60000);
+        tide_state=(mins<60?'near ':'')+(nxt.hi?'incoming to high':'falling to low');
+      }
+    }
+    const len=parseFloat(document.getElementById('len').value);
+    const wt=parseFloat(document.getElementById('wt').value);
+    const {error}=await sb.from('catches').insert({
+      user_id:ME.id, species,
+      species_key: ALIAS[species.toLowerCase()]||null,
+      length_in: isNaN(len)?null:len,
+      weight_lb: isNaN(wt)?null:wt,
+      released: document.getElementById('rel').value==='1',
+      lat:st.lat, lng:st.lng, water_body:st.name||null,
+      precision:document.getElementById('prec').value,
+      bait:(document.getElementById('bait').value||'').trim()||null,
+      notes:(document.getElementById('notes').value||'').trim()||null,
+      photo_path, tide_state,
+      moon_phase: phaseName(sol.phase.phase),
+      water_temp_f: (st.tide&&st.tide.temp)||null
+    });
+    if(error) throw error;
+    PENDING_PHOTO=null;
+    closeModal(); loadMyProfile();
+    state.tab='feed'; loadFeed(); render();
+  }catch(e){
+    b.disabled=false; b.textContent='Post catch';
+    setMsg(e.message||'Could not post that catch.');
+  }
+}
+
+/* ---------- community feed ---------- */
+let FEED=null, FEED_ERR=null, MYLIKES=new Set();
+function photoURL(path){
+  if(!path) return null;
+  return `${SUPABASE_URL}/storage/v1/object/public/catch-photos/${path}`;
+}
+async function loadFeed(){
+  if(!sb){ FEED_ERR='not connected'; return; }
+  FEED_ERR=null;
+  const st=state||{};
+  try{
+    let q=sb.from('public_catches').select('*').order('created_at',{ascending:false}).limit(40);
+    if(st.lat!=null){
+      const d=1.2; // degrees, roughly 130 km
+      q=q.gte('lat',st.lat-d).lte('lat',st.lat+d).gte('lng',st.lng-d).lte('lng',st.lng+d);
+    }
+    const {data,error}=await q;
+    if(error) throw error;
+    FEED=data||[];
+    if(ME&&FEED.length){
+      const {data:likes}=await sb.from('likes').select('catch_id')
+        .eq('user_id',ME.id).in('catch_id',FEED.map(f=>f.id));
+      MYLIKES=new Set((likes||[]).map(l=>l.catch_id));
+    }
+  }catch(e){ FEED_ERR=e.message||'could not load the feed'; FEED=[]; }
+  if(state.tab==='feed') render();
+}
+async function toggleLike(id){
+  if(!ME) return openSignIn();
+  try{
+    if(MYLIKES.has(id)){
+      await sb.from('likes').delete().eq('user_id',ME.id).eq('catch_id',id);
+      MYLIKES.delete(id);
+      const f=FEED.find(x=>x.id===id); if(f) f.like_count=Math.max(0,(f.like_count||1)-1);
+    } else {
+      await sb.from('likes').insert({user_id:ME.id,catch_id:id});
+      MYLIKES.add(id);
+      const f=FEED.find(x=>x.id===id); if(f) f.like_count=(f.like_count||0)+1;
+    }
+    render();
+  }catch(e){ console.warn('like failed',e); }
+}
+async function reportCatch(id){
+  if(!ME) return openSignIn();
+  openModal(`
+    <div class="mtitle">Report this post</div>
+    <div class="msub">Reports go to the moderation queue. Thanks for keeping Bitecast decent.</div>
+    <div id="formmsg"></div>
+    <div class="fld"><label>Reason</label>
+      <select id="rr">
+        <option value="spam">Spam</option>
+        <option value="harassment">Harassment or abuse</option>
+        <option value="nudity">Nudity or sexual content</option>
+        <option value="violence">Graphic violence</option>
+        <option value="illegal_harvest">Illegal harvest</option>
+        <option value="minor_safety">Concern about a minor's safety</option>
+        <option value="other">Something else</option>
+      </select>
+    </div>
+    <div class="fld"><label>Detail (optional)</label><textarea id="rd"></textarea></div>
+    <button class="btn" onclick="sendReport('${esc(id)}')">Send report</button>
+  `);
+}
+async function sendReport(id){
+  try{
+    await sb.from('reports').insert({reporter_id:ME.id,catch_id:id,
+      reason:document.getElementById('rr').value,
+      detail:(document.getElementById('rd').value||'').trim()||null});
+    openModal(`<div class="mtitle">Report sent</div>
+      <div class="msub">Thanks. We will take a look.</div>
+      <button class="btn" onclick="closeModal()">Close</button>`);
+  }catch(e){ setMsg(e.message||'Could not send that report.'); }
+}
+function feedHTML(){
+  if(!anonKey()||!sb){
+    return `<div class="nod">Bitecast is not connected to its database yet.</div>
+      <button class="btn" onclick="openSetup()">Connect now</button>`;
+  }
+  let h=`<div class="hint">Catches posted near here, newest first. Locations are approximate unless the angler chose otherwise.</div>`;
+  if(!ME) h+=`<div class="msg good" style="margin-bottom:12px">Sign in to post your own catches and like others.</div>`;
+  if(FEED_ERR) h+=msg('Feed did not load: '+FEED_ERR);
+  if(FEED===null) return h+`<div class="nod"><span class="spin"></span>Loading…</div>`;
+  if(!FEED.length) return h+`<div class="nod">No catches posted near here yet. Be the first.</div>`;
+  FEED.forEach(c=>{
+    const url=photoURL(c.photo_path);
+    const liked=MYLIKES.has(c.id);
+    const bits=[];
+    if(c.length_in) bits.push(c.length_in+'"');
+    if(c.weight_lb) bits.push(c.weight_lb+' lb');
+    if(c.released) bits.push('released');
+    h+=`<div class="cc">
+      ${url?`<img class="ccimg" src="${esc(url)}" alt="${esc(c.species)}" loading="lazy">`:''}
+      <div class="ccb">
+        <div class="ccu">@${esc(c.username||'angler')}</div>
+        <div class="ccs">${esc(titleCase(c.species||''))}</div>
+        <div class="ccm">
+          ${bits.length?esc(bits.join(' · '))+'<br>':''}
+          ${c.water_body?'📍 '+esc(c.water_body)+' ':''}
+          ${c.precision==='exact'?'<span class="chip">exact spot</span>':c.precision==='hidden'?'<span class="chip">spot hidden</span>':'<span class="chip">approx.</span>'}
+          <br>${esc(ago((c.caught_at||c.created_at||'').slice(0,10)))}
+          ${c.bait?' · 🎣 '+esc(c.bait):''}
+          ${c.moon_phase?' · '+esc(c.moon_phase):''}
+          ${c.tide_state?' · 🌊 '+esc(c.tide_state):''}
+        </div>
+        ${c.notes?`<div class="ccm" style="margin-top:6px;color:#4a5560">${esc(c.notes)}</div>`:''}
+        <div class="ccact">
+          <button class="${liked?'liked':''}" onclick="toggleLike('${esc(c.id)}')">${liked?'♥':'♡'} ${c.like_count||0}</button>
+          <button onclick="reportCatch('${esc(c.id)}')">Report</button>
+        </div>
+      </div>
+    </div>`;
+  });
+  return h;
+}
+
 /* ============ RENDER ============ */
 let marker=null, ring=null, state={};
 const out=()=>document.getElementById('out');
@@ -1003,7 +1436,8 @@ function render(){
   h+=`<div class="tabs">
         <button class="tab ${state.tab==='common'?'on':''}" onclick="setTab('common')">Fish here</button>
         <button class="tab ${state.tab==='recent'?'on':''}" onclick="setTab('recent')">Recent</button>
-        <button class="tab ${state.tab==='cond'?'on':''}" onclick="setTab('cond')">Tides &amp; bite</button>
+        <button class="tab ${state.tab==='cond'?'on':''}" onclick="setTab('cond')">Tides</button>
+        <button class="tab ${state.tab==='feed'?'on':''}" onclick="setTab('feed')">Community</button>
       </div>`;
 
   if(state.offline || state.idErr || fishErr){
@@ -1074,8 +1508,10 @@ function render(){
         <div class="det">${detailHTML(t,key,big,cn,meta)}</div>
       </div>`;
     });
-  } else {
+  } else if(state.tab==='cond'){
     h+=condHTML();
+  } else {
+    h+=feedHTML();
   }
 
   h+=`<div class="foot">
@@ -1085,7 +1521,10 @@ function render(){
   out().innerHTML=h;
 }
 
-function setTab(t){ state.tab=t; render(); }
+function setTab(t){
+  state.tab=t; render();
+  if(t==='feed' && sb && FEED===null) loadFeed();
+}
 function tog(el){
   const d=el.parentElement.querySelector('.det');
   d.classList.toggle('on');
@@ -1125,6 +1564,7 @@ async function lookup(lat,lng,radiusOverride){
            counts:data.counts, recent:data.recent, tab:'common',
            fishErr:data.err, idErr, offline, fallbackSp: gaz?gaz.sp:null,
            tide:null, tideErr:null};
+  FEED=null; FEED_ERR=null;
   render();
 
   // tides load in the background so the fish list is not held up
@@ -1136,6 +1576,10 @@ async function lookup(lat,lng,radiusOverride){
 }
 
 map.on('click', e=> lookup(e.latlng.lat, e.latlng.lng));
+
+/* boot accounts */
+initSupabase();
+paintAcct();
 
 /* ============ LOCATE ME ============ */
 let meDot=null;
