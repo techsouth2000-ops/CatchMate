@@ -62,7 +62,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .tt{font-weight:700;font-size:10px;letter-spacing:.04em;margin-bottom:3px}
 .when{background:#f0fbf5;border-left:3px solid var(--sec);border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.7;margin-top:8px;color:#41505c}
 .nod{font-size:11px;color:var(--mut);line-height:1.6;padding:10px 0}
-.obs{display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--bd);align-items:center}
+.obsmeta{background:#f4f7fa;border-left:3px solid var(--mut);border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.7;color:#4a5560;margin-top:11px}
 .obs img{width:46px;height:46px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--bd)}
 .on1{font-size:13px;font-weight:600}
 .on2{font-size:10px;color:var(--mut);margin-top:2px}
@@ -641,6 +641,38 @@ const REG={
   knifefish:{size:'No minimum',bag:'No limit — non-native',season:'Open year-round',note:'Non-native. May not be transported live.',regional:false,url:FW+'nonnative/'}
 };
 
+function detailHTML(t,key,photo,common,extra){
+  let h='';
+  if(photo) h+=`<img class="fbig" src="${esc(photo)}" alt="${esc(common||'')}" loading="lazy">`;
+  if(extra) h+=extra;
+  if(!t){
+    h+=`<div style="font-size:12px;color:#4a5560;line-height:1.6;margin-top:11px">
+          No tackle guide in this app for that species yet — it is not one of the common Florida targets.
+        </div>${regBlock(key)}`;
+    return h;
+  }
+  h+=`<div style="font-size:12px;color:#4a5560;line-height:1.6;margin-top:11px">${esc(t.about)}</div>`;
+  h+=regBlock(key);
+  h+=`<div class="lbl">Bait &amp; rigging</div>`;
+  t.baits.forEach(b=>{
+    h+=`<div class="bait">
+          <div class="bn">${esc(b.n)}</div>
+          ${b.size?`<div class="bd"><b>Size:</b> ${esc(b.size)}</div>`:''}
+          ${b.col?`<div class="bd"><b>Color:</b> ${esc(b.col)}</div>`:''}
+          <div class="rig"><div class="tt" style="color:var(--pri)">🔧 RIG IT</div>${esc(b.rig)}</div>
+          <div class="how"><div class="tt" style="color:var(--acc)">🎯 FISH IT</div>${esc(b.how)}</div>
+          <div class="why"><div class="tt" style="color:#7a5cbf">✨ WHY IT WORKS</div>${esc(b.why)}</div>
+        </div>`;
+  });
+  h+=`<div class="when">
+        📅 <b>Season:</b> ${esc(t.when.season)}<br>
+        🌅 <b>Time:</b> ${esc(t.when.time)}<br>
+        🌡️ <b>Water:</b> ${esc(t.when.temp)}<br>
+        🌊 <b>Tide / moon:</b> ${esc(t.when.tide)}
+      </div>`;
+  return h;
+}
+
 function regBlock(key){
   const r=key?REG[key]:null;
   if(!r){
@@ -749,27 +781,8 @@ function render(){
             <div class="cnt">${x.c.count==null?'commonly caught here':x.c.count+' record'+(x.c.count===1?'':'s')+' nearby'} · ${esc(t.d)} · ⭐ ${t.s}/10</div>
           </div><div class="arrow">▼</div>
         </div>
-        <div class="det">
-          ${x.photo?`<img class="fbig" src="${esc(x.photo)}" alt="${esc(x.common)}" loading="lazy">`:''}
-          <div style="font-size:12px;color:#4a5560;line-height:1.6;margin-top:11px">${esc(t.about)}</div>
-          ${regBlock(x.key)}
-          <div class="lbl">Bait &amp; rigging</div>`;
-      t.baits.forEach(b=>{
-        h+=`<div class="bait">
-              <div class="bn">${esc(b.n)}</div>
-              ${b.size?`<div class="bd"><b>Size:</b> ${esc(b.size)}</div>`:''}
-              ${b.col?`<div class="bd"><b>Color:</b> ${esc(b.col)}</div>`:''}
-              <div class="rig"><div class="tt" style="color:var(--pri)">🔧 RIG IT</div>${esc(b.rig)}</div>
-              <div class="how"><div class="tt" style="color:var(--acc)">🎯 FISH IT</div>${esc(b.how)}</div>
-              <div class="why"><div class="tt" style="color:#7a5cbf">✨ WHY IT WORKS</div>${esc(b.why)}</div>
-            </div>`;
-      });
-      h+=`<div class="when">
-            📅 <b>Season:</b> ${esc(t.when.season)}<br>
-            🌅 <b>Time:</b> ${esc(t.when.time)}<br>
-            🌡️ <b>Water:</b> ${esc(t.when.temp)}<br>
-            🌊 <b>Tide / moon:</b> ${esc(t.when.tide)}
-          </div></div></div>`;
+        <div class="det">${detailHTML(t,x.key,x.photo,x.common)}</div>
+      </div>`;
     });
     if(others.length){
       h+=`<div class="lbl" style="margin-top:16px">Also recorded here</div><div class="nod">`;
@@ -777,21 +790,37 @@ function render(){
       h+=`</div>`;
     }
   } else {
-    h+=`<div class="hint">Most recent verified fish records within ${radius} km, newest first.</div>`;
+    h+=`<div class="hint">Most recent verified fish records within ${radius} km, newest first. Tap one for bait, rigging and legal limits.</div>`;
     if(!(recent||[]).length){
       h+=`<div class="nod">No recent records within ${radius} km.</div>`;
     }
     (recent||[]).forEach(o=>{
       const tx=o.taxon||{}, cn=tx.preferred_common_name||tx.name||'Unidentified fish';
-      const ph=(o.photos&&o.photos[0]&&o.photos[0].url)?o.photos[0].url.replace('square','small'):'';
+      const key=cn?ALIAS[cn.toLowerCase().trim()]:null;
+      const t=key?T[key]||null:null;
+      const raw=(o.photos&&o.photos[0]&&o.photos[0].url)||'';
+      const thumb=raw?raw.replace('square','small'):'';
+      const big=raw?raw.replace('square','medium'):'';
       const place=o.place_guess||'';
-      h+=`<div class="obs">
-            ${ph?`<img src="${esc(ph)}" alt="">`:`<div style="width:46px;height:46px;border-radius:6px;background:#e8edf1;display:flex;align-items:center;justify-content:center">🐟</div>`}
-            <div style="min-width:0">
-              <div class="on1">${esc(titleCase(cn))}</div>
-              <div class="on2">${esc(ago(o.observed_on))}${place?' · '+esc(place.slice(0,42)):''}</div>
-            </div>
+      const meta=`<div class="obsmeta">
+            📅 <b>Recorded:</b> ${esc(ago(o.observed_on))}${o.observed_on?' ('+esc(o.observed_on)+')':''}<br>
+            ${place?`📍 <b>Where:</b> ${esc(place)}<br>`:''}
+            ${tx.name?`🔬 <b>Species:</b> <i>${esc(tx.name)}</i><br>`:''}
+            ${o.id?`<a class="rlink" href="https://www.inaturalist.org/observations/${o.id}" target="_blank" rel="noopener">See the original record →</a>`:''}
           </div>`;
+      h+=`<div class="card">
+        <div class="chead" onclick="tog(this)">
+          ${thumb
+            ? `<img class="fphoto" src="${esc(thumb)}" alt="${esc(cn)}" loading="lazy">`
+            : `<div class="fphoto ph">${t?t.e:'🐟'}</div>`}
+          <div style="flex:1;min-width:0">
+            <div class="fname">${esc(titleCase(cn))}</div>
+            <div class="sci">${esc(tx.name||'')}</div>
+            <div class="cnt">${esc(ago(o.observed_on))}${place?' · '+esc(place.slice(0,34)):''}</div>
+          </div><div class="arrow">▼</div>
+        </div>
+        <div class="det">${detailHTML(t,key,big,cn,meta)}</div>
+      </div>`;
     });
   }
 
