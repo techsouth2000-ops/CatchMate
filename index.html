@@ -81,7 +81,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div class="side">
     <div class="head">
       <div class="logo">🎣 CatchMate</div>
-      <div class="tag">Tap any water in Florida — real records, real tackle</div>
+      <div class="tag">Tap any water in Florida — real records, real tackle <span style="color:#0a8f5f;font-weight:700">· v3 photos+limits</span></div>
     </div>
     <div class="body" id="out">
       <div class="empty">
@@ -446,7 +446,30 @@ async function fishHere(lat,lng,radiusKm){
     getJSON(`${INAT}/observations?${base}&order_by=observed_on&order=desc&per_page=25&photos=true`)
       .catch(e=>{err=err||e.message; console.warn('iNat observations failed:',e.message); return {results:[]};})
   ]);
-  return {counts:counts.results||[], recent:recent.results||[], err};
+  const cs=counts.results||[], rs=recent.results||[];
+
+  /* species_counts does not always carry default_photo, so backfill:
+     1) /taxa lookup for the exact species, 2) a photo from a nearby observation. */
+  const need=cs.filter(c=>c.taxon && c.taxon.id && !(c.taxon.default_photo)).map(c=>c.taxon.id);
+  if(need.length){
+    try{
+      const tx=await getJSON(`${INAT}/taxa?id=${need.slice(0,30).join(',')}&per_page=30`);
+      const byId={};
+      (tx.results||[]).forEach(t=>{ if(t.default_photo) byId[t.id]=t.default_photo; });
+      cs.forEach(c=>{ if(c.taxon && !c.taxon.default_photo && byId[c.taxon.id]) c.taxon.default_photo=byId[c.taxon.id]; });
+    }catch(e){ console.warn('iNat taxa photo lookup failed:',e.message); }
+  }
+  const obsPhoto={};
+  rs.forEach(o=>{
+    const id=o.taxon&&o.taxon.id, p=o.photos&&o.photos[0]&&o.photos[0].url;
+    if(id && p && !obsPhoto[id]) obsPhoto[id]=p.replace('square','medium');
+  });
+  cs.forEach(c=>{
+    if(c.taxon && !c.taxon.default_photo && obsPhoto[c.taxon.id])
+      c.taxon.default_photo={medium_url:obsPhoto[c.taxon.id]};
+  });
+
+  return {counts:cs, recent:rs, err};
 }
 
 /* ============ OFFLINE FALLBACK ============
