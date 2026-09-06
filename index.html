@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CatchMate — Florida Fishing Intel</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--pri:#0b5fa5;--sec:#0a8f5f;--acc:#e2622c;--dark:#16202b;--bg:#f4f6f8;--bd:#dce3ea;--mut:#6b7885}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--dark)}
+.wrap{display:flex;height:100vh}
+.side{width:430px;background:#fff;display:flex;flex-direction:column;box-shadow:2px 0 14px rgba(0,0,0,.09);z-index:600}
+.mapwrap{flex:1;position:relative}
+#map{width:100%;height:100%}
+.head{padding:14px 16px;border-bottom:1px solid var(--bd)}
+.logo{font-size:20px;font-weight:700;color:var(--pri)}
+.tag{font-size:11px;color:var(--mut);margin-top:2px}
+.body{flex:1;overflow-y:auto;padding:14px 16px 40px}
+.empty{text-align:center;padding:50px 16px;color:var(--mut)}
+.empty .ic{font-size:44px;margin-bottom:12px}
+.status{font-size:12px;color:var(--pri);background:#eef5fc;border-radius:6px;padding:8px 10px;margin-bottom:10px}
+.err{font-size:12px;color:#9a3412;background:#fff3ec;border:1px solid #ffd9c4;border-radius:6px;padding:8px 10px;margin-bottom:10px}
+.loc{font-size:20px;font-weight:700;line-height:1.2}
+.sub{font-size:11px;color:var(--mut);margin-top:4px}
+.pill{display:inline-block;font-size:10px;font-weight:700;color:#fff;padding:3px 8px;border-radius:20px;margin-top:8px;letter-spacing:.03em}
+.salt{background:var(--pri)}.fresh{background:var(--sec)}.brack{background:#7a5cbf}.unk{background:#8b95a1}
+.tabs{display:flex;gap:6px;margin:14px 0 10px}
+.tab{flex:1;padding:8px;font-size:12px;font-weight:600;border:1px solid var(--bd);background:#fff;color:var(--mut);border-radius:7px;cursor:pointer}
+.tab.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.hint{font-size:11px;color:var(--mut);margin-bottom:10px;line-height:1.5}
+.card{border:1px solid var(--bd);border-radius:10px;margin-bottom:9px;overflow:hidden;background:#fff}
+.chead{padding:11px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.chead:hover{background:#fafbfc}
+.rank{font-size:10px;font-weight:700;background:var(--sec);color:#fff;border-radius:4px;padding:2px 6px;margin-right:6px}
+.fname{font-weight:650;font-size:14px}
+.sci{font-size:10px;color:var(--mut);font-style:italic;margin-top:2px}
+.cnt{font-size:10px;color:var(--mut);margin-top:3px}
+.arrow{color:var(--pri);font-size:11px;flex-shrink:0}
+.det{display:none;padding:0 12px 12px;border-top:1px solid var(--bd)}
+.det.on{display:block}
+.lbl{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--pri);margin:12px 0 6px}
+.bait{background:#f7f9fa;border-left:3px solid var(--sec);border-radius:5px;padding:9px 10px;margin-bottom:8px;font-size:12px}
+.bn{font-weight:650;margin-bottom:4px}
+.bd{font-size:11px;color:#4a5560;line-height:1.55;margin-bottom:3px}
+.rig{background:#eef5fc;border:1px solid #cfe2f4;border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.6;margin:7px 0}
+.how{background:#fff4ee;border-left:3px solid var(--acc);border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.6;margin-bottom:7px}
+.why{background:#f5f1fd;border-left:3px solid #7a5cbf;border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.6}
+.tt{font-weight:700;font-size:10px;letter-spacing:.04em;margin-bottom:3px}
+.when{background:#f0fbf5;border-left:3px solid var(--sec);border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.7;margin-top:8px;color:#41505c}
+.nod{font-size:11px;color:var(--mut);line-height:1.6;padding:10px 0}
+.obs{display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--bd);align-items:center}
+.obs img{width:46px;height:46px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--bd)}
+.on1{font-size:13px;font-weight:600}
+.on2{font-size:10px;color:var(--mut);margin-top:2px}
+.ctl{position:absolute;top:10px;right:10px;z-index:500;display:flex;flex-direction:column;gap:5px}
+.cbtn{padding:7px 11px;font-size:11px;font-weight:600;border:0;border-radius:6px;background:#fff;color:var(--dark);box-shadow:0 1px 6px rgba(0,0,0,.28);cursor:pointer}
+.cbtn.on{background:var(--pri);color:#fff}
+.cbtn.loc{background:var(--sec);color:#fff;margin-top:4px}
+.foot{font-size:10px;color:var(--mut);margin-top:16px;line-height:1.6;border-top:1px solid var(--bd);padding-top:10px}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid #cfe2f4;border-top-color:var(--pri);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media(max-width:820px){.wrap{flex-direction:column-reverse}.side{width:100%;height:56%}.mapwrap{height:44%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="side">
+    <div class="head">
+      <div class="logo">🎣 CatchMate</div>
+      <div class="tag">Tap any water in Florida — real records, real tackle</div>
+    </div>
+    <div class="body" id="out">
+      <div class="empty">
+        <div class="ic">🗺️</div>
+        <div style="font-weight:600;color:var(--dark);margin-bottom:6px">Tap the map</div>
+        <div style="font-size:12px">Lake, river, bay, flat, inlet or open Gulf — anywhere.</div>
+      </div>
+    </div>
+  </div>
+  <div class="mapwrap">
+    <div id="map"></div>
+    <div class="ctl">
+      <button class="cbtn on" id="b-map" onclick="setBase('map')">🗺️ Map</button>
+      <button class="cbtn" id="b-sat" onclick="setBase('sat')">🛰️ Satellite</button>
+      <button class="cbtn loc" id="b-loc" onclick="locateMe()">📍 Locate me</button>
+      <button class="cbtn" id="b-diag" onclick="runDiagnostics()">🩺 Test</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------
+   CatchMate
+   Water body ID : Overpass API (OpenStreetMap)
+   Fish records  : iNaturalist API (real georeferenced observations)
+   Tackle data   : curated, keyed to species actually returned
+----------------------------------------------------------------*/
+
+const map = L.map('map', {zoomControl:true}).setView([27.6,-81.6], 7);
+const baseMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'});
+const SAT_SOURCES=[
+  {n:'Esri',u:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',a:'© Esri'},
+  {n:'USGS',u:'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',a:'USGS'},
+  {n:'Google',u:'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',a:'Google'}
+];
+let satIdx=0, baseSat=L.tileLayer(SAT_SOURCES[0].u,{maxZoom:19,attribution:SAT_SOURCES[0].a});
+let satFails=0;
+function wireSat(){
+  satFails=0;
+  baseSat.on('tileerror',()=>{
+    if(++satFails<4) return;
+    if(satIdx>=SAT_SOURCES.length-1) return;
+    satIdx++;
+    const s=SAT_SOURCES[satIdx];
+    console.warn('satellite source failed, switching to',s.n);
+    const was=map.hasLayer(baseSat);
+    if(was) map.removeLayer(baseSat);
+    baseSat=L.tileLayer(s.u,{maxZoom:19,attribution:s.a});
+    wireSat();
+    if(was) baseSat.addTo(map);
+    document.getElementById('b-sat').textContent='🛰️ Satellite ('+s.n+')';
+  });
+}
+wireSat();
+baseMap.addTo(map);
+function setBase(k){
+  if(map.hasLayer(baseMap)) map.removeLayer(baseMap);
+  if(map.hasLayer(baseSat)) map.removeLayer(baseSat);
+  (k==='sat'?baseSat:baseMap).addTo(map);
+  document.getElementById('b-map').classList.toggle('on',k==='map');
+  document.getElementById('b-sat').classList.toggle('on',k==='sat');
+}
+
+/* ============ TACKLE LIBRARY ============
+   Keyed by lowercase common name. Aliases map iNat names -> entries. */
+const ALIAS = {
+  'red drum':'redfish','redfish':'redfish','channel bass':'redfish',
+  'spotted seatrout':'seatrout','spotted sea trout':'seatrout','speckled trout':'seatrout',
+  'common snook':'snook','snook':'snook',
+  'atlantic tarpon':'tarpon','tarpon':'tarpon',
+  'largemouth bass':'lmb','florida bass':'lmb','florida largemouth bass':'lmb',
+  'bluegill':'bluegill','redear sunfish':'redear','shellcracker':'redear',
+  'black crappie':'crappie','white crappie':'crappie',
+  'channel catfish':'catfish','blue catfish':'catfish','white catfish':'catfish',
+  'brown bullhead':'catfish','yellow bullhead':'catfish',
+  'black drum':'blackdrum',
+  'sheepshead':'sheepshead',
+  'gray snapper':'mangrovesnapper','mangrove snapper':'mangrovesnapper','grey snapper':'mangrovesnapper',
+  'lane snapper':'mangrovesnapper','yellowtail snapper':'mangrovesnapper',
+  'crevalle jack':'jack','jack crevalle':'jack',
+  'ladyfish':'ladyfish',
+  'atlantic spanish mackerel':'spanish','spanish mackerel':'spanish','king mackerel':'kingfish',
+  'gulf flounder':'flounder','southern flounder':'flounder','summer flounder':'flounder','flounder':'flounder',
+  'florida pompano':'pompano','pompano':'pompano',
+  'permit':'permit','bonefish':'bonefish',
+  'great barracuda':'cuda','barracuda':'cuda',
+  'gag':'grouper','gag grouper':'grouper','red grouper':'grouper','black grouper':'grouper','goliath grouper':'goliath',
+  'florida gar':'gar','longnose gar':'gar','spotted gar':'gar','alligator gar':'gar',
+  'bowfin':'bowfin',
+  'blue tilapia':'tilapia','nile tilapia':'tilapia','mozambique tilapia':'tilapia',
+  'butterfly peacock bass':'peacock','peacock bass':'peacock',
+  'clown knifefish':'knifefish',
+  'mayan cichlid':'mayan',
+  'striped mullet':'mullet','white mullet':'mullet',
+  'hardhead catfish':'saltcat','gafftopsail catfish':'saltcat',
+  'atlantic croaker':'croaker','spot':'croaker',
+  'tripletail':'tripletail',
+  'cobia':'cobia',
+  'bluefish':'bluefish',
+  'sharksucker':null
+};
+
+const T = {
+  redfish:{e:'🐟',d:'Intermediate',s:9,about:'Red drum. Copper bronze with a black tail spot. Slot fish run 18–27", bulls go 30"+. Feeds nose-down on flats, often tailing in under 2 ft.',
+    baits:[
+      {n:'Live shrimp',size:'2–4"',col:'Natural',rig:'20 lb fluoro leader, 24" long, tied to main line with a double uni. #1 or 1/0 circle hook through the shrimp horn (the point on top of the head), avoiding the dark spot. Add a single split shot 12" up only if wind pushes the bait.',how:'Cast 6–8 ft AHEAD of the fish or the wake, never on top of it. Let it sit. When the line comes tight, do not swing — just reel steadily until the rod loads.',why:'Shrimp are the primary forage on Florida flats. A circle hook and a slow load means the hook finds the corner of the jaw, which matters because reds are frequently released.'},
+      {n:'Gold weedless spoon',size:'1/4–1/2 oz',col:'Gold, copper',rig:'Clip to a 20 lb fluoro leader with a small snap swivel, or loop knot direct for more wobble.',how:'Cast past the target, reel just fast enough to feel the spoon thumping. Over grass, keep the rod tip high so it rides above the tops.',why:'The flash mimics a fleeing baitfish and reds will chase it down. Weedless means you can throw it into the grass where they actually live.'}],
+    when:{season:'Year-round; Sept–Nov is the peak',time:'First light to about 9 am, and the last hour of daylight',temp:'65–80°F',tide:'Best on a low incoming — fish push onto the flat with the water'}},
+
+  seatrout:{e:'🐟',d:'Easy',s:8,about:'Spotted seatrout. Schooling fish, most are 14–20". Sits over grass with sand potholes. Soft mouth, so a soft hookset.',
+    baits:[
+      {n:'Live shrimp under a popping cork',size:'2–3"',col:'Natural',rig:'Popping cork, then 18–24" of 20 lb fluoro, then a 1/0 circle hook. Hook the shrimp through the horn or tail so it swims.',how:'Cast over grass, let it settle, then pop the cork hard once and pause 3–5 seconds. Repeat. The pop imitates feeding fish.',why:'The rattle and chug pulls trout in from 30 ft away, and the cork keeps the shrimp suspended just above the grass where they can see it.'},
+      {n:'Soft plastic paddle tail on a jig head',size:'3–4"',col:'New penny, glow, chartreuse in stained water',rig:'1/8 or 1/4 oz jig head. Thread the plastic on dead straight — a bent bait spins and trout will refuse it.',how:'Cast to the edge of a pothole, let it fall, then a slow steady retrieve with a small twitch every few turns. Most bites come on the fall.',why:'Imitates a wounded pilchard. The pause on the drop is what triggers the eat.'}],
+    when:{season:'Year-round; fall and winter are best',time:'Early morning and the last two hours of light',temp:'65–75°F',tide:'Moving water either direction; slack tide is slow'}},
+
+  snook:{e:'🐟',d:'Intermediate',s:9,about:'Ambush predator with a hard black lateral line. Sits tight to structure — dock pilings, mangrove roots, bridge shadow lines. Runs 20–40".',
+    baits:[
+      {n:'Live pilchard, pinfish or shrimp',size:'3–5"',col:'Natural',rig:'30–40 lb fluoro leader (they have sandpaper jaws and will chafe lighter line), 2/0–3/0 circle hook through the nose or just behind the anal fin.',how:'Get up-current of the structure and let the bait drift back into the shadow line. Do not cast into the middle of open water — cast to the edge of cover.',why:'Snook face into the current and wait for food to wash to them. Presenting the bait naturally in the current is the whole game.'},
+      {n:'Twitch bait / suspending jerkbait',size:'3–4"',col:'White, olive back, or bone at night',rig:'Loop knot to 30 lb fluoro, no swivel.',how:'Twitch-twitch-pause. Let it hang in the pause for 2 full seconds. Under dock lights at night, cast to the dark side of the light line.',why:'The pause is when they commit. Snook eat things that look hurt and easy.'}],
+    when:{season:'Best April–June around the spawn; check current FWC harvest seasons before keeping any',time:'Dawn, dusk, and after dark under lights',temp:'70–85°F; they get lethargic below 60°F',tide:'Strong outgoing at night is prime'}},
+
+  tarpon:{e:'🐟',d:'Advanced',s:10,about:'The silver king. 40–150+ lbs, jumps repeatedly, bony mouth that throws hooks. Rolls on the surface to gulp air, which is how you find them.',
+    baits:[
+      {n:'Live crab or threadfin',size:'3–6"',col:'Natural',rig:'60–80 lb fluoro leader, 5–7 ft, joined to 50 lb braid with a double uni. 6/0–8/0 circle hook through the corner of the crab shell.',how:'Find rolling fish, cast ahead of the direction of travel, and let it drift naturally. When it eats, point the rod at the fish and reel — do not swing. Bow to it when it jumps.',why:'Tarpon inhale a crab whole. Bowing on the jump puts slack in the line so a headshake cannot lever the hook out.'},
+      {n:'Large soft plastic swimbait',size:'5–6"',col:'White, black at night',rig:'Weighted swimbait hook, 60 lb leader.',how:'Slow steady retrieve through a channel or pass on an outgoing tide.',why:'Matches the mullet and threadfin they follow through passes.'}],
+    when:{season:'April through July on the migration',time:'Sunrise through mid-morning; night in the passes',temp:'75–85°F',tide:'Outgoing through a pass is the classic setup'}},
+
+  lmb:{e:'🐟',d:'Intermediate',s:9,about:'Florida-strain largemouth. Grows huge here — 8 lb fish are realistic, teens exist. Relates to grass edges, pads, and any hard cover.',
+    baits:[
+      {n:'Senko style stick worm',size:'5"',col:'Green pumpkin, watermelon red, black-blue in dark water',rig:'Weightless Texas rig. 3/0–4/0 EWG worm hook. Enter the nose, come out 1/4" down, slide the worm up over the eye, rotate the hook and bury the point back into the body so it is weedless. Worm must hang perfectly straight.',how:'Pitch to the edge of grass or a pad field. Do nothing for 5 seconds while it sinks on slack line. Twitch twice, let it fall again. Watch your line — the bite is a tick or a line jump, not a thump. Reel down and swing hard.',why:'The bait shimmies side to side on the fall with no input. Bass eat it because it looks defenseless.'},
+      {n:'Hollow body frog',size:'2.5"',col:'Black over pads, white over open water',rig:'60 lb braid, no leader. Straight to the frog.',how:'Walk it across matted grass and pads with steady rod-tip twitches. When it blows up, COUNT ONE SECOND before setting. Setting on the splash pulls it away.',why:'Florida bass live under matted vegetation and look up. Braid is required to drag them out of the salad.'}],
+    when:{season:'Feb–May spawn is best; Oct–Nov also strong',time:'First and last light',temp:'60–75°F',tide:'n/a — watch for a full moon around the spawn'}},
+
+  bluegill:{e:'🐟',d:'Very easy',s:7,about:'Panfish, hand-sized to 10". Everywhere there is fresh water. The best fish to start a kid on.',
+    baits:[{n:'Live cricket or red worm',size:'Whole cricket, or a 1–2" piece of worm',col:'Natural',rig:'Small bobber set 18–36" deep, #8 or #10 baitholder hook, one split shot.',how:'Drop it next to reeds, docks or overhanging limbs. Do not cast to open water. Bobber goes down, lift the rod gently.',why:'They eat insects constantly and hold within a foot or two of cover.'}],
+    when:{season:'Spring and summer; bedding on the full moon',time:'Any warm daylight hour',temp:'65–85°F',tide:'n/a'}},
+
+  redear:{e:'🐟',d:'Easy',s:7,about:'Shellcracker. Bigger cousin of the bluegill, 9–12". Bottom feeder with crushing plates for snails.',
+    baits:[{n:'Red wiggler worm or small crayfish',size:'1–2"',col:'Natural',rig:'#6 hook, split shot 8" up, fished right on the bottom. A bobber can work but keep the bait on or near the sand.',how:'Find sandy bedding areas in 3–6 ft in spring. Cast and let it sit. Bites are subtle taps.',why:'They root the bottom for snails and larvae, so a bait suspended high gets ignored.'}],
+    when:{season:'March–May bedding',time:'Mid-morning',temp:'65–75°F',tide:'n/a — full moon bedding'}},
+
+  crappie:{e:'🐟',d:'Easy',s:8,about:'Speckled perch. Schooling, suspends over brush and around bridge pilings. 10–14" typical, excellent eating.',
+    baits:[{n:'Live minnow',size:'2"',col:'Natural',rig:'Slip float with a bobber stop set 6–12 ft, #4 light wire hook through the back just under the dorsal.',how:'Set the depth so the minnow rides just ABOVE the brush pile. Crappie feed upward and will not look down. Lift gently — their mouths tear.',why:'They suspend in the middle of the water column and ambush upward.'},
+    {n:'1/32 oz jig',size:'1.5–2"',col:'Chartreuse-white, black-chartreuse',rig:'Light jig head, 4–6 lb line.',how:'Vertical jig it next to pilings, or cast and count it down before a slow swim.',why:'Matches the small shad they key on.'}],
+    when:{season:'Nov–Feb is peak',time:'Early morning and dusk',temp:'50–65°F',tide:'n/a'}},
+
+  catfish:{e:'🐟',d:'Easy',s:7,about:'Channel and bullhead cats. 2–20 lbs, feed by smell, mostly after dark.',
+    baits:[{n:'Chicken liver or cut bait',size:'Golf-ball sized chunk',col:'n/a',rig:'Carolina rig: 1 oz egg sinker on the main line, barrel swivel, then 18" of 20 lb leader to a 3/0 circle hook. Wrap liver in a bit of mesh so it stays on the cast.',how:'Cast to a deep hole or a channel edge, set the rod in a holder with a slight bow in the line, and wait. When the rod loads, just start reeling.',why:'They track a scent trail upcurrent to the source. Fresh bait, replaced every 20 minutes, matters more than anything else.'}],
+    when:{season:'Year-round, best in warm months',time:'Dusk through the night',temp:'65–85°F',tide:'n/a'}},
+
+  blackdrum:{e:'🐟',d:'Easy',s:7,about:'Bottom feeder with barbels and crushing teeth. Small ones eat great; big ones over 15 lbs get wormy and are usually released.',
+    baits:[{n:'Fresh dead shrimp or half a blue crab',size:'Whole shrimp',col:'Natural',rig:'Knocker rig: egg sinker sliding right down to a 3/0 circle hook on 30 lb fluoro.',how:'Fish it flat on the bottom next to bridge pilings, dock pilings and rock. Slow, heavy pull when it goes.',why:'They root the bottom by smell and crush shellfish. Dead bait works better than live for this one.'}],
+    when:{season:'Winter and early spring',time:'Any, slightly better at night',temp:'55–75°F',tide:'Moving water around structure'}},
+
+  sheepshead:{e:'🐟',d:'Intermediate',s:8,about:'Black and white striped convict fish with human-looking teeth. Lives on barnacle-covered pilings. Notorious bait thief.',
+    baits:[{n:'Live fiddler crab or oyster',size:'Small fiddler, whole',col:'Natural',rig:'Small strong #1 or 1/0 hook, 20 lb fluoro, just enough weight to hold bottom next to the piling.',how:'Drop straight down the piling, keep the line tight, and set the hook BEFORE you think you should. Scrape barnacles off the piling first to chum them up.',why:'They pick barnacles off structure. The bite is a tiny tick because they nibble — hesitate and you are feeding them for free.'}],
+    when:{season:'Dec–March around the spawn',time:'Daylight',temp:'50–70°F',tide:'Moving water'}},
+
+  mangrovesnapper:{e:'🐟',d:'Intermediate',s:8,about:'Gray snapper. Structure-oriented, sharp-eyed and leader-shy. 10–16" inshore, bigger offshore.',
+    baits:[{n:'Live shrimp or small pilchard',size:'2–3"',col:'Natural',rig:'Go LIGHT: 15–20 lb fluoro, small 1/0 hook, minimum weight. Heavy leader gets refused in clear water.',how:'Free-line back into the structure with the current. Fast, firm hookset, then immediately turn the fish away from the rocks.',why:'They watch the leader. Dropping from 30 lb to 15 lb often triples the bites.'}],
+    when:{season:'Summer, especially around the full moon spawn',time:'Night is best',temp:'70–85°F',tide:'Strong moving water'}},
+
+  jack:{e:'🐟',d:'Easy',s:7,about:'Crevalle jack. Not for the table, but pound for pound the hardest pull inshore. Blitzes bait on the surface in schools.',
+    baits:[{n:'Topwater plug or any fast-moving lure',size:'4–5"',col:'Chrome, white',rig:'40 lb leader, loop knot.',how:'Throw into the edge of a busting school and retrieve as fast as you physically can. Faster is better.',why:'They hunt in packs and compete. Speed triggers the chase reflex.'}],
+    when:{season:'Year-round',time:'Any daylight',temp:'70–85°F',tide:'Any'}},
+
+  ladyfish:{e:'🐟',d:'Very easy',s:6,about:'The "poor man\'s tarpon". Jumps constantly, slimes everything. Great fun on light tackle and excellent cut bait.',
+    baits:[{n:'Small jig or shrimp',size:'2–3"',col:'White, chartreuse',rig:'1/8 oz jig head, 20 lb leader.',how:'Cast into moving water at a bridge or pass and retrieve at medium speed.',why:'They chase small baitfish in current and hit anything fast and shiny.'}],
+    when:{season:'Year-round',time:'Dusk and after dark under lights',temp:'70–85°F',tide:'Moving'}},
+
+  spanish:{e:'🐟',d:'Easy',s:8,about:'Spanish mackerel. Fast schooling fish, 1–4 lbs, razor teeth. Look for diving birds.',
+    baits:[{n:'Silver spoon or small jig',size:'1/2 oz spoon',col:'Chrome, silver',rig:'A short 30–40 lb fluoro or light wire bite leader is essential — they cut straight mono.',how:'Cast into the school and retrieve FAST. If you get cut off repeatedly, add the wire.',why:'Flash imitates glass minnows. Speed keeps their teeth off your knot.'}],
+    when:{season:'Spring and fall runs',time:'Morning',temp:'68–78°F',tide:'Any, follow the birds'}},
+
+  kingfish:{e:'🐟',d:'Intermediate',s:8,about:'King mackerel. Pelagic, 10–50 lbs, blistering first run.',
+    baits:[{n:'Slow-trolled live blue runner or ribbonfish',size:'6–12"',col:'Natural',rig:'Stinger rig: single wire-tied nose hook plus a trailing treble in the bait\'s flank, on #4 single-strand wire.',how:'Slow troll at 2–3 knots around bait pods and structure. The stinger is not optional — kings slash baits in half.',why:'They strike from below and cut the bait, so the trailing treble is what actually hooks them.'}],
+    when:{season:'Spring and fall migrations',time:'Early morning',temp:'70–82°F',tide:'n/a'}},
+
+  flounder:{e:'🐟',d:'Easy',s:7,about:'Flatfish that buries in sand and ambushes upward. 12–20".',
+    baits:[{n:'Live mud minnow or finger mullet',size:'3"',col:'Natural',rig:'Carolina rig, 1/2 oz egg sinker, 20 lb fluoro, 1/0 hook through both lips.',how:'Drag it slowly along sandy bottom near a drop-off or channel edge. When you feel weight, WAIT 5–10 seconds before setting — they grab and reposition.',why:'They pin the bait first and swallow second. Setting immediately pulls it out of their mouth.'}],
+    when:{season:'Fall run Oct–Nov',time:'Any daylight',temp:'65–78°F',tide:'Outgoing near inlets'}},
+
+  pompano:{e:'🐟',d:'Intermediate',s:8,about:'Florida pompano. Small, fast, silver, and arguably the best-eating fish in the state. Runs the trough right off the beach.',
+    baits:[{n:'Sand flea (mole crab) or Fishbites',size:'One flea',col:'Natural, or pink/orange Fishbites',rig:'Pompano rig: two dropper loops with small floats above 1/0 circle hooks, 2–4 oz pyramid sinker on the bottom.',how:'Cast into the first trough just past the breakers, not to the horizon. Keep the line tight.',why:'They dig sand fleas out of the wash. The small float lifts the bait just off the bottom into their feeding zone.'}],
+    when:{season:'Fall and spring runs',time:'Morning',temp:'65–75°F',tide:'Incoming'}},
+
+  permit:{e:'🐟',d:'Advanced',s:9,about:'Flats ghost, 15–40 lbs. Extremely wary and one of the hardest fish in the state to fool.',
+    baits:[{n:'Live crab',size:'Silver-dollar sized',col:'Natural',rig:'20–30 lb fluoro, 1/0–2/0 hook through the corner of the shell.',how:'Cast well ahead of a tailing or cruising fish and let the crab sink naturally. Any drag on the line and it is over.',why:'Crabs are their preferred food, and a natural free-falling presentation is the only one they trust.'}],
+    when:{season:'Spring and summer',time:'Sunrise to mid-morning',temp:'75–85°F',tide:'Incoming over the flat'}},
+
+  bonefish:{e:'🐟',d:'Advanced',s:9,about:'Gray ghost of the flats. 4–10 lbs, blistering runs. South Florida and the Keys.',
+    baits:[{n:'Live shrimp',size:'2"',col:'Natural',rig:'15–20 lb fluoro, small #4–#2 hook, no weight.',how:'Spot tailing fish in 1–2 ft, lead them by 5 ft, and let it settle. Move it a few inches when the fish closes.',why:'They root the bottom for shrimp and crabs. A quiet entry is critical — a splash spooks the whole school.'}],
+    when:{season:'Year-round, best March–June',time:'Morning incoming tide',temp:'72–85°F',tide:'Low incoming'}},
+
+  cuda:{e:'🐟',d:'Easy',s:7,about:'Great barracuda. Aggressive, toothy, hangs over patch reefs and channel edges.',
+    baits:[{n:'Tube lure or fast-moving plug',size:'6–10"',col:'Orange, green',rig:'Single strand wire leader is mandatory.',how:'Retrieve as fast as you can crank. If it follows and stops, speed up rather than slowing down.',why:'They are sight hunters that trigger on fleeing prey. Slowing down kills the strike.'}],
+    when:{season:'Year-round',time:'Daylight',temp:'74–86°F',tide:'Any'}},
+
+  grouper:{e:'🐟',d:'Intermediate',s:8,about:'Gag, red and black grouper. Structure-dwelling, powerful, dives straight for the rocks. Check current FWC seasons — they open and close.',
+    baits:[{n:'Live pinfish or large cut bait',size:'4–8"',col:'Natural',rig:'Knocker or fishfinder rig, 60–80 lb leader, 6/0–8/0 circle hook, heavy enough weight to hold bottom.',how:'Drop to structure, crank the reel handle immediately on the load and get the fish 10 ft up FAST. Give them slack and they rock you up.',why:'They live inside the structure. The whole fight is decided in the first three seconds.'}],
+    when:{season:'Check FWC season dates by zone before targeting',time:'Any',temp:'Any',tide:'n/a'}},
+
+  goliath:{e:'🐟',d:'Advanced',s:6,about:'Goliath grouper. Protected in Florida — very limited lottery harvest only. Must be released, and large ones should stay in the water.',
+    baits:[{n:'Catch and release only',size:'—',col:'—',rig:'Extremely heavy tackle if hooked incidentally, so the fight is short.',how:'If you hook one, get it in fast and release it in the water without lifting it.',why:'Long fights and lifting large fish cause mortality. Know the current FWC regulations before targeting.'}],
+    when:{season:'Protected — see FWC',time:'—',temp:'—',tide:'—'}},
+
+  gar:{e:'🐟',d:'Intermediate',s:6,about:'Florida and longnose gar. Prehistoric, long toothy beak that is very hard to hook.',
+    baits:[{n:'Cut bait, or a rope lure',size:'3–5"',col:'Natural',rig:'A frayed nylon rope lure with NO hook works best — the threads tangle in their teeth. Otherwise 40 lb leader and a small treble.',how:'Cast to gar rolling on the surface in backwaters and retrieve slowly.',why:'A bony beak deflects hooks, so tangling in rope beats trying to penetrate bone.'}],
+    when:{season:'Warm months',time:'Morning and dusk',temp:'70–88°F',tide:'n/a'}},
+
+  bowfin:{e:'🐟',d:'Intermediate',s:6,about:'Mudfish. Native, primitive, and very aggressive. Lives in weedy backwaters.',
+    baits:[{n:'Live minnow or cut bait',size:'3–4"',col:'Natural',rig:'30 lb leader (they have real teeth), 2/0 hook.',how:'Fish weedy slow water on the bottom. Expect a violent take and a thrashing fight.',why:'Ambush predator in thick cover; they hit anything that struggles.'}],
+    when:{season:'Year-round',time:'Morning and dusk',temp:'65–85°F',tide:'n/a'}},
+
+  tilapia:{e:'🐟',d:'Easy',s:5,about:'Blue tilapia. Non-native and abundant in Florida canals and lakes. Mostly vegetarian, so they ignore standard lures. Bowfishing is popular for them.',
+    baits:[{n:'Bread ball or green peas',size:'Pea-sized',col:'n/a',rig:'#8 hook, tiny float, light line.',how:'Chum a little bread, then fish a small bread ball on the surface or just under it near their beds.',why:'They filter feed on plant matter, which is why they rarely touch a jig or a worm.'}],
+    when:{season:'Warm months, bedding in spring',time:'Daylight',temp:'70–88°F',tide:'n/a'}},
+
+  peacock:{e:'🐟',d:'Intermediate',s:8,about:'Butterfly peacock bass. Non-native, established in South Florida canals. Brutally aggressive, daytime feeder — the opposite of largemouth.',
+    baits:[{n:'Live shiner, or a topwater walking bait',size:'3–4"',col:'Bright orange, chartreuse, white',rig:'20 lb braid, short 20 lb fluoro leader, 2/0 hook for live bait.',how:'Fish MIDDAY in bright sun near canal structure, seawalls and bridge shade. Retrieve fast and erratic.',why:'They are sight feeders that need light, so the classic dawn/dusk bass plan actively works against you here.'}],
+    when:{season:'Warm months; they hate cold snaps',time:'10 am–3 pm, full sun',temp:'75–90°F',tide:'n/a'}},
+
+  knifefish:{e:'🐟',d:'Intermediate',s:5,about:'Clown knifefish. Non-native in South Florida canals. Nocturnal, large, and a strong fighter.',
+    baits:[{n:'Live shiner',size:'3–4"',col:'Natural',rig:'20 lb leader, 2/0 hook under a float.',how:'Fish at night or right at dusk along canal edges.',why:'Strictly nocturnal ambusher.'}],
+    when:{season:'Warm months',time:'Night',temp:'75–88°F',tide:'n/a'}},
+
+  mayan:{e:'🐟',d:'Very easy',s:6,about:'Mayan cichlid. Non-native, everywhere in South Florida canals and the Everglades. Scrappy and good eating.',
+    baits:[{n:'Small piece of worm or a tiny jig',size:'1"',col:'Anything bright',rig:'#6 hook under a small float.',how:'Drop it near canal edges and vegetation. They are not picky.',why:'Territorial and aggressive; they attack small intruders near their beds.'}],
+    when:{season:'Warm months',time:'Daylight',temp:'72–90°F',tide:'n/a'}},
+
+  mullet:{e:'🐟',d:'Intermediate',s:5,about:'Striped mullet. Vegetarian — will not hit a lure. Caught with a cast net and used as the premier live and cut bait in Florida.',
+    baits:[{n:'Cast net (or tiny bread ball on a #12 hook)',size:'—',col:'—',rig:'Cast net, 3/8" mesh.',how:'Chum a spot with bread or oatmeal, wait for them to school up, then throw the net.',why:'They are the backbone of the food chain here — snook, tarpon and reds all eat them.'}],
+    when:{season:'Fall mullet run Sept–Nov is the big one',time:'Daylight',temp:'Any',tide:'Any'}},
+
+  saltcat:{e:'🐟',d:'Very easy',s:3,about:'Hardhead or gafftopsail catfish. Very common, venomous dorsal and pectoral spines. Handle with pliers or a towel, never bare-handed.',
+    baits:[{n:'Any cut or dead bait on the bottom',size:'—',col:'—',rig:'Standard bottom rig.',how:'They find it on their own. Usually the fish you catch when you wanted something else.',why:'Scent feeders on the bottom.'}],
+    when:{season:'Year-round',time:'Any',temp:'Any',tide:'Any'}},
+
+  croaker:{e:'🐟',d:'Very easy',s:5,about:'Atlantic croaker and spot. Small bottom fish, great panfried and excellent live bait.',
+    baits:[{n:'Small piece of shrimp',size:'1/2"',col:'Natural',rig:'Two-hook bottom rig, #4 hooks, 1–2 oz sinker.',how:'Fish sandy bottom near inlets and piers. Small taps, small hookset.',why:'Bottom scavengers keying on shrimp scent.'}],
+    when:{season:'Cooler months',time:'Any',temp:'60–75°F',tide:'Moving'}},
+
+  tripletail:{e:'🐟',d:'Intermediate',s:8,about:'Odd, leaf-shaped fish that floats on its side near crab trap buoys and floating debris. Outstanding eating.',
+    baits:[{n:'Live shrimp under a small float',size:'3"',col:'Natural',rig:'30 lb fluoro, 2/0 hook, float set 2–3 ft.',how:'Idle along a line of trap buoys and look for a dark shape on the surface. Cast well past it and swim the shrimp by — do not hit it on the head.',why:'They hold in the shade of floating objects and ambush anything drifting past.'}],
+    when:{season:'Spring through fall',time:'Sunny mid-day makes them easier to spot',temp:'70–85°F',tide:'Any'}},
+
+  cobia:{e:'🐟',d:'Intermediate',s:9,about:'Brown, shark-shaped, 20–80 lbs. Follows rays, turtles and buoys. Sight-fishing target on the Panhandle spring run.',
+    baits:[{n:'Live eel or a large bucktail jig',size:'6–10"',col:'Chartreuse, white',rig:'50–60 lb fluoro leader, 6/0 hook or a 2–4 oz jig.',how:'Spot them from a tower or the bow, cast past and lead the fish, then swim it in front of its nose. Have a second rod ready — they often follow in pairs.',why:'Curious and aggressive; they will chase a jig right to the boat.'}],
+    when:{season:'March–May Panhandle run',time:'Sunny daylight for spotting',temp:'68–80°F',tide:'n/a'}},
+
+  bluefish:{e:'🐟',d:'Easy',s:6,about:'Toothy, aggressive schooling fish. Destroys tackle and bait alike.',
+    baits:[{n:'Metal spoon or cut bait',size:'1/2–1 oz',col:'Chrome',rig:'Short wire or 50 lb fluoro bite leader.',how:'Cast into a blitz and retrieve fast.',why:'They slash through bait schools in a frenzy and hit anything moving.'}],
+    when:{season:'Fall and winter runs',time:'Any',temp:'60–75°F',tide:'Moving'}}
+};
+
+/* ============ WATER BODY IDENTIFICATION (Overpass / OSM) ============ */
+const OVERPASS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter'
+];
+
+/* NOTE: no AbortController / no fetch options object.
+   Some in-app webviews throw DataCloneError when a fetch init object
+   containing an AbortSignal is passed. Plain GET + Promise.race timeout
+   is the portable version. */
+function timeout(ms){
+  return new Promise((_,rej)=>setTimeout(()=>rej(new Error('timed out after '+(ms/1000)+'s')),ms));
+}
+async function getJSON(url,ms){
+  const r = await Promise.race([fetch(url), timeout(ms||20000)]);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+async function overpass(q){
+  let lastErr;
+  for(const url of OVERPASS){
+    try{
+      return await getJSON(url+'?data='+encodeURIComponent(q), 22000);
+    }catch(e){ lastErr=e; console.warn('overpass endpoint failed:',url,e.message); }
+  }
+  throw lastErr || new Error('All Overpass endpoints failed');
+}
+
+// Score a candidate so we prefer a named lake/bay over a generic coastline
+function scoreTags(tg){
+  if(!tg || !tg.name) return -1;
+  if(tg.boundary==='administrative') return -1;
+  if(tg.natural==='water') return 100;
+  if(tg.natural==='bay'||tg.natural==='strait') return 95;
+  if(tg.waterway==='riverbank') return 92;
+  if(tg.waterway==='river') return 88;
+  if(tg.waterway==='canal'||tg.waterway==='stream') return 80;
+  if(tg.place==='sea'||tg.place==='ocean') return 40;
+  if(tg.leisure==='marina') return 30;
+  return -1;
+}
+
+function classify(tg){
+  const n=(tg.name||'').toLowerCase();
+  const w=tg.water||'', nat=tg.natural||'', ww=tg.waterway||'';
+  if(tg.salt==='yes') return 'salt';
+  if(nat==='bay'||nat==='strait'||tg.place==='sea'||tg.place==='ocean') return 'salt';
+  if(/gulf|ocean|atlantic|sound|pass|inlet|harbor|harbour|bight|key|cay/.test(n)) return 'salt';
+  if(/lagoon/.test(n)||w==='lagoon') return 'brack';
+  if(w==='lake'||w==='pond'||w==='reservoir'||w==='oxbow'||w==='basin') return 'fresh';
+  if(ww==='river'||ww==='stream'||ww==='canal'||ww==='ditch'||ww==='riverbank') return 'brack';
+  if(/lake|pond|reservoir|slough|creek(?!.*(bay|inlet))/.test(n)) return 'fresh';
+  return 'unk';
+}
+
+async function identify(lat,lng){
+  // Pass 1: which mapped water polygon actually CONTAINS this point
+  const q1 = `[out:json][timeout:20];is_in(${lat},${lng})->.a;`+
+             `(area.a["natural"="water"];area.a["natural"="bay"];area.a["natural"="strait"];`+
+             `area.a["waterway"];area.a["place"="sea"];);out tags;`;
+  try{
+    const d = await overpass(q1);
+    const best = (d.elements||[]).map(e=>({tg:e.tags||{},sc:scoreTags(e.tags)}))
+      .filter(x=>x.sc>0).sort((a,b)=>b.sc-a.sc)[0];
+    if(best) return {name:best.tg.name, type:classify(best.tg), src:'contained polygon', tags:best.tg};
+  }catch(e){ console.warn('is_in failed',e); }
+
+  // Pass 2: nearest named water feature
+  const q2 = `[out:json][timeout:20];(`+
+    `way(around:900,${lat},${lng})["natural"="water"]["name"];`+
+    `rel(around:900,${lat},${lng})["natural"="water"]["name"];`+
+    `way(around:900,${lat},${lng})["waterway"]["name"];`+
+    `rel(around:2500,${lat},${lng})["waterway"="river"]["name"];`+
+    `way(around:4000,${lat},${lng})["natural"~"bay|strait"]["name"];`+
+    `node(around:6000,${lat},${lng})["natural"~"bay|strait"]["name"];`+
+    `node(around:30000,${lat},${lng})["place"="sea"]["name"];`+
+    `);out tags center 40;`;
+  try{
+    const d = await overpass(q2);
+    const cands = (d.elements||[]).map(e=>{
+      const tg=e.tags||{}, sc=scoreTags(tg);
+      const c = e.center || (e.lat!=null?{lat:e.lat,lon:e.lon}:null);
+      const dist = c ? Math.hypot(c.lat-lat,(c.lon-lng)*Math.cos(lat*Math.PI/180)) : 9;
+      return {tg,sc,dist};
+    }).filter(x=>x.sc>0);
+    if(cands.length){
+      cands.sort((a,b)=> (b.sc - a.sc) || (a.dist - b.dist));
+      const b = cands[0];
+      return {name:b.tg.name, type:classify(b.tg), src:'nearest named feature', tags:b.tg};
+    }
+  }catch(e){ console.warn('around failed',e); }
+
+  return {name:null, type:'unk', src:'not found', tags:{}};
+}
+
+/* ============ FISH RECORDS (iNaturalist) ============ */
+const INAT='https://api.inaturalist.org/v1';
+const FISH_TAXA='47178,47273'; // ray-finned fishes + cartilaginous fishes
+
+async function fishHere(lat,lng,radiusKm){
+  const base=`lat=${lat}&lng=${lng}&radius=${radiusKm}&taxon_id=${FISH_TAXA}&verifiable=true`;
+  let err=null;
+  const [counts,recent] = await Promise.all([
+    getJSON(`${INAT}/observations/species_counts?${base}&per_page=40`)
+      .catch(e=>{err=e.message; console.warn('iNat species_counts failed:',e.message); return {results:[]};}),
+    getJSON(`${INAT}/observations?${base}&order_by=observed_on&order=desc&per_page=25&photos=true`)
+      .catch(e=>{err=err||e.message; console.warn('iNat observations failed:',e.message); return {results:[]};})
+  ]);
+  return {counts:counts.results||[], recent:recent.results||[], err};
+}
+
+/* ============ OFFLINE FALLBACK ============
+   Used ONLY when Overpass / iNaturalist are unreachable (blocked network,
+   in-app preview sandbox, API downtime). Clearly labelled in the UI so it is
+   never confused with live records. */
+const GAZ=[
+  // freshwater
+  {n:'Lake Okeechobee',la:26.93,lo:-80.80,r:.42,t:'fresh',sp:['lmb','crappie','bluegill','redear','catfish','gar','bowfin']},
+  {n:'Lake Istokpoga',la:27.37,lo:-81.28,r:.13,t:'fresh',sp:['lmb','crappie','bluegill','catfish']},
+  {n:'Lake Kissimmee',la:27.94,lo:-81.28,r:.14,t:'fresh',sp:['lmb','crappie','bluegill','catfish']},
+  {n:'Lake Tohopekaliga',la:28.20,lo:-81.36,r:.13,t:'fresh',sp:['lmb','crappie','bluegill','catfish']},
+  {n:'Lake George',la:29.28,lo:-81.60,r:.13,t:'fresh',sp:['lmb','crappie','catfish','bluegill']},
+  {n:'Rodman Reservoir',la:29.51,lo:-81.80,r:.10,t:'fresh',sp:['lmb','crappie','bluegill','catfish']},
+  {n:'Lake Seminole',la:30.75,lo:-84.87,r:.16,t:'fresh',sp:['lmb','crappie','bluegill','catfish']},
+  {n:'St. Johns River',la:29.30,lo:-81.55,r:.55,t:'brack',sp:['lmb','crappie','catfish','redfish','seatrout','bluegill']},
+  {n:'Caloosahatchee River',la:26.72,lo:-81.83,r:.32,t:'brack',sp:['snook','tarpon','redfish','seatrout','lmb','crappie','catfish','mullet']},
+  {n:'Everglades canals',la:26.10,lo:-80.55,r:.45,t:'fresh',sp:['peacock','lmb','mayan','tilapia','gar','bowfin','knifefish']},
+  // gulf coast
+  {n:'Tampa Bay',la:27.72,lo:-82.52,r:.30,t:'salt',sp:['redfish','seatrout','snook','sheepshead','flounder','tarpon','jack','mangrovesnapper','blackdrum']},
+  {n:'Charlotte Harbor',la:26.87,lo:-82.13,r:.24,t:'salt',sp:['redfish','seatrout','snook','tarpon','sheepshead','mangrovesnapper','jack']},
+  {n:'Pine Island Sound',la:26.60,lo:-82.15,r:.16,t:'salt',sp:['redfish','seatrout','snook','tarpon','sheepshead','mangrovesnapper']},
+  {n:'Estero Bay',la:26.42,lo:-81.88,r:.12,t:'salt',sp:['snook','redfish','seatrout','sheepshead','mangrovesnapper']},
+  {n:'Sarasota Bay',la:27.35,lo:-82.60,r:.16,t:'salt',sp:['redfish','seatrout','snook','sheepshead','flounder','mangrovesnapper']},
+  {n:'Naples / Gordon Pass',la:26.10,lo:-81.80,r:.16,t:'salt',sp:['snook','redfish','seatrout','tarpon','sheepshead','mangrovesnapper']},
+  {n:'Ten Thousand Islands',la:25.85,lo:-81.45,r:.32,t:'salt',sp:['snook','redfish','seatrout','tarpon','blackdrum','jack']},
+  {n:'Homosassa / Crystal River',la:28.85,lo:-82.65,r:.20,t:'salt',sp:['redfish','seatrout','tarpon','cobia','sheepshead']},
+  {n:'Cedar Key',la:29.14,lo:-83.05,r:.18,t:'salt',sp:['redfish','seatrout','tripletail','flounder','sheepshead']},
+  {n:'Steinhatchee',la:29.67,lo:-83.39,r:.18,t:'salt',sp:['redfish','seatrout','tripletail','flounder']},
+  {n:'Apalachicola Bay',la:29.68,lo:-84.95,r:.22,t:'salt',sp:['redfish','seatrout','flounder','sheepshead','tripletail']},
+  {n:'St. Andrew Bay / Panama City',la:30.15,lo:-85.70,r:.20,t:'salt',sp:['redfish','seatrout','flounder','spanish','cobia','sheepshead']},
+  {n:'Choctawhatchee Bay / Destin',la:30.42,lo:-86.35,r:.25,t:'salt',sp:['redfish','seatrout','flounder','spanish','kingfish','cobia']},
+  {n:'Pensacola Bay',la:30.40,lo:-87.14,r:.22,t:'salt',sp:['redfish','seatrout','flounder','spanish','sheepshead','bluefish']},
+  // atlantic coast
+  {n:'Mosquito Lagoon',la:28.80,lo:-80.80,r:.18,t:'salt',sp:['redfish','seatrout','blackdrum','sheepshead','flounder']},
+  {n:'Indian River Lagoon',la:27.90,lo:-80.50,r:.45,t:'salt',sp:['redfish','seatrout','snook','blackdrum','sheepshead','jack']},
+  {n:'Ponce Inlet',la:29.07,lo:-80.92,r:.10,t:'salt',sp:['redfish','snook','flounder','bluefish','spanish','tarpon']},
+  {n:'Sebastian Inlet',la:27.86,lo:-80.45,r:.09,t:'salt',sp:['snook','redfish','spanish','bluefish','flounder','tarpon']},
+  {n:'St. Lucie Inlet',la:27.16,lo:-80.16,r:.10,t:'salt',sp:['snook','redfish','tarpon','jack','mangrovesnapper']},
+  {n:'Lake Worth Lagoon',la:26.72,lo:-80.05,r:.14,t:'salt',sp:['snook','tarpon','jack','mangrovesnapper','seatrout']},
+  {n:'Biscayne Bay',la:25.60,lo:-80.20,r:.28,t:'salt',sp:['bonefish','permit','snook','tarpon','mangrovesnapper','cuda','jack']},
+  {n:'Florida Bay',la:25.05,lo:-80.85,r:.35,t:'salt',sp:['redfish','seatrout','snook','tarpon','blackdrum','cuda']},
+  {n:'Florida Keys',la:24.75,lo:-81.20,r:.60,t:'salt',sp:['tarpon','permit','bonefish','mangrovesnapper','cuda','grouper','jack']},
+  {n:'Jacksonville / St. Marys',la:30.40,lo:-81.45,r:.25,t:'salt',sp:['redfish','seatrout','flounder','sheepshead','blackdrum','croaker']},
+  {n:'St. Augustine',la:29.90,lo:-81.30,r:.16,t:'salt',sp:['redfish','seatrout','flounder','sheepshead','blackdrum']}
+];
+function gazLookup(lat,lng){
+  let best=null,bd=1e9;
+  for(const g of GAZ){
+    const dy=lat-g.la, dx=(lng-g.lo)*Math.cos(lat*Math.PI/180);
+    const d=Math.hypot(dy,dx);
+    if(d<=g.r && d<bd){ bd=d; best=g; }
+  }
+  return best;
+}
+
+/* ============ DIAGNOSTICS ============ */
+function probeImage(url,ms){
+  return new Promise(res=>{
+    const i=new Image(); let done=false;
+    const t=setTimeout(()=>{if(!done){done=true;res(false);}},ms||8000);
+    i.onload=()=>{if(!done){done=true;clearTimeout(t);res(true);}};
+    i.onerror=()=>{if(!done){done=true;clearTimeout(t);res(false);}};
+    i.src=url;
+  });
+}
+async function probeJSON(url,ms){
+  try{ await getJSON(url,ms||10000); return true; }catch(e){ return false; }
+}
+async function runDiagnostics(){
+  out().innerHTML='<div class="status"><span class="spin"></span>Testing which services this browser can reach…</div>';
+  const tests=[
+    ['OpenStreetMap tiles', probeImage('https://a.tile.openstreetmap.org/7/34/54.png')],
+    ['Esri satellite tiles', probeImage('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/7/54/34')],
+    ['Google satellite tiles', probeImage('https://mt1.google.com/vt/lyrs=s&x=34&y=54&z=7')],
+    ['Overpass (water names)', probeJSON('https://overpass-api.de/api/interpreter?data='+encodeURIComponent('[out:json][timeout:10];node(26.72,-81.84,26.73,-81.83);out count;'))],
+    ['iNaturalist (fish records)', probeJSON('https://api.inaturalist.org/v1/observations?lat=26.72&lng=-81.83&radius=8&taxon_id=47178&per_page=1')]
+  ];
+  const results=await Promise.all(tests.map(t=>t[1]));
+  const blocked=results.filter((r,i)=>i>=3&&!r).length;
+  let h='<div class="loc">Connection test</div><div class="sub">What this browser is allowed to reach</div>';
+  h+='<div style="margin-top:14px">';
+  tests.forEach((t,i)=>{
+    h+=`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bd);font-size:13px">
+          <span>${esc(t[0])}</span>
+          <b style="color:${results[i]?'#0a8f5f':'#c2410c'}">${results[i]?'reachable':'blocked'}</b>
+        </div>`;
+  });
+  h+='</div>';
+  if(blocked){
+    h+=`<div class="err" style="margin-top:14px">
+      The data APIs are blocked here. That is a restriction of this preview window, not a fault in the app — it will not fetch live water names or fish records until you open it somewhere without that restriction.
+      <br><br><b>Push it to GitHub Pages and open the real URL in Safari or Chrome.</b> Everything marked blocked above should turn green there.
+      <br><br>Until then the app runs on its built-in Florida list, which is marked "offline" wherever it appears.</div>`;
+  } else {
+    h+=`<div style="margin-top:14px;padding:10px;background:#f0fbf5;border-left:3px solid var(--sec);border-radius:6px;font-size:12px;line-height:1.6">
+      Everything is reachable. Tap the map and you will get live water names and live fish records.</div>`;
+  }
+  h+='<div class="foot">Tap the map to go back to fishing.</div>';
+  out().innerHTML=h;
+}
+/* ============ RENDER ============ */
+let marker=null, ring=null, state={};
+const out=()=>document.getElementById('out');
+
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function titleCase(s){return s.replace(/\w\S*/g,w=>w[0].toUpperCase()+w.slice(1).toLowerCase());}
+function tackleFor(common){
+  if(!common) return null;
+  const k=ALIAS[common.toLowerCase().trim()];
+  return k?T[k]||null:null;
+}
+function ago(d){
+  if(!d) return '';
+  const days=Math.floor((Date.now()-new Date(d+'T12:00:00').getTime())/864e5);
+  if(isNaN(days)) return d;
+  if(days<=0) return 'today';
+  if(days===1) return 'yesterday';
+  if(days<30) return days+' days ago';
+  if(days<365) return Math.round(days/30)+' months ago';
+  return Math.round(days/365)+' years ago';
+}
+
+function status(msg){
+  out().innerHTML=`<div class="status"><span class="spin"></span>${esc(msg)}</div>`;
+}
+
+function render(){
+  const {name,type,lat,lng,counts,recent,radius,idsrc,fishErr} = state;
+  const label={salt:'Saltwater',fresh:'Freshwater',brack:'Brackish / tidal',unk:'Type unknown'}[type];
+  const cls={salt:'salt',fresh:'fresh',brack:'brack',unk:'unk'}[type];
+
+  const targets=[], others=[];
+  if(state.offline && state.fallbackSp){
+    state.fallbackSp.forEach(k=>{
+      const t=T[k]; if(!t) return;
+      const common=Object.keys(ALIAS).find(a=>ALIAS[a]===k)||k;
+      targets.push({c:{count:null},t,common});
+    });
+  } else {
+    (counts||[]).forEach(c=>{
+      const common=c.taxon&&(c.taxon.preferred_common_name||c.taxon.name);
+      const t=tackleFor(common);
+      (t?targets:others).push({c,t,common});
+    });
+  }
+
+  let h='';
+  h+=`<div class="loc">${esc(name||'Unnamed water')}</div>`;
+  h+=`<div class="sub">${lat.toFixed(4)}, ${lng.toFixed(4)} · identified via ${esc(idsrc)}</div>`;
+  h+=`<div class="pill ${cls}">${label}</div>`;
+
+  h+=`<div class="tabs">
+        <button class="tab ${state.tab==='common'?'on':''}" onclick="setTab('common')">Most recorded</button>
+        <button class="tab ${state.tab==='recent'?'on':''}" onclick="setTab('recent')">Recent records</button>
+      </div>`;
+
+  if(state.offline || state.idErr || fishErr){
+    h+=`<div class="err">
+          Live data is unreachable from this browser${state.offline?' — showing the built-in offline list for this area':''}.
+          <br><a href="#" onclick="runDiagnostics();return false;" style="color:#9a3412;font-weight:700">Run a connection test →</a>
+        </div>`;
+  }
+
+  if(state.tab==='common'){
+    h+=`<div class="hint">${state.offline
+      ? 'Built-in species list for this area — live records unavailable right now. Tap a fish for bait, rigging and technique.'
+      : `Ranked by verified iNaturalist records within ${radius} km of your tap. Tap a fish for bait, rigging and technique.`}</div>`;
+    if(!targets.length && !others.length){
+      h+=`<div class="nod">No fish records logged within ${radius} km yet. That usually means the spot is lightly documented, not that it is empty. Try tapping a nearby pass, bridge or main basin.</div>`;
+    }
+    targets.forEach((x,i)=>{
+      const t=x.t, sci=x.c.taxon&&x.c.taxon.name;
+      h+=`<div class="card">
+        <div class="chead" onclick="tog(this)">
+          <div>
+            <div><span class="rank">#${i+1}</span><span class="fname">${t.e} ${esc(titleCase(x.common))}</span></div>
+            <div class="sci">${esc(sci||'')}</div>
+            <div class="cnt">${x.c.count==null?'commonly caught here':x.c.count+' record'+(x.c.count===1?'':'s')+' nearby'} · ${esc(t.d)} · ⭐ ${t.s}/10</div>
+          </div><div class="arrow">▼</div>
+        </div>
+        <div class="det">
+          <div style="font-size:12px;color:#4a5560;line-height:1.6;margin-top:11px">${esc(t.about)}</div>
+          <div class="lbl">Bait &amp; rigging</div>`;
+      t.baits.forEach(b=>{
+        h+=`<div class="bait">
+              <div class="bn">${esc(b.n)}</div>
+              ${b.size?`<div class="bd"><b>Size:</b> ${esc(b.size)}</div>`:''}
+              ${b.col?`<div class="bd"><b>Color:</b> ${esc(b.col)}</div>`:''}
+              <div class="rig"><div class="tt" style="color:var(--pri)">🔧 RIG IT</div>${esc(b.rig)}</div>
+              <div class="how"><div class="tt" style="color:var(--acc)">🎯 FISH IT</div>${esc(b.how)}</div>
+              <div class="why"><div class="tt" style="color:#7a5cbf">✨ WHY IT WORKS</div>${esc(b.why)}</div>
+            </div>`;
+      });
+      h+=`<div class="when">
+            📅 <b>Season:</b> ${esc(t.when.season)}<br>
+            🌅 <b>Time:</b> ${esc(t.when.time)}<br>
+            🌡️ <b>Water:</b> ${esc(t.when.temp)}<br>
+            🌊 <b>Tide / moon:</b> ${esc(t.when.tide)}
+          </div></div></div>`;
+    });
+    if(others.length){
+      h+=`<div class="lbl" style="margin-top:16px">Also recorded here</div><div class="nod">`;
+      h+=others.slice(0,18).map(o=>`${esc(titleCase(o.common||'unknown'))} <span style="color:#9aa5b1">(${o.c.count})</span>`).join(' · ');
+      h+=`</div>`;
+    }
+  } else {
+    h+=`<div class="hint">Most recent verified fish records within ${radius} km, newest first.</div>`;
+    if(!(recent||[]).length){
+      h+=`<div class="nod">No recent records within ${radius} km.</div>`;
+    }
+    (recent||[]).forEach(o=>{
+      const tx=o.taxon||{}, cn=tx.preferred_common_name||tx.name||'Unidentified fish';
+      const ph=(o.photos&&o.photos[0]&&o.photos[0].url)?o.photos[0].url.replace('square','small'):'';
+      const place=o.place_guess||'';
+      h+=`<div class="obs">
+            ${ph?`<img src="${esc(ph)}" alt="">`:`<div style="width:46px;height:46px;border-radius:6px;background:#e8edf1;display:flex;align-items:center;justify-content:center">🐟</div>`}
+            <div style="min-width:0">
+              <div class="on1">${esc(titleCase(cn))}</div>
+              <div class="on2">${esc(ago(o.observed_on))}${place?' · '+esc(place.slice(0,42)):''}</div>
+            </div>
+          </div>`;
+    });
+  }
+
+  h+=`<div class="foot">
+        Water body from OpenStreetMap (Overpass API). Fish records from iNaturalist — these are verified public observations, which include angler catches, surveys and sightings, so they show what species are actually documented in the area rather than a guess.<br><br>
+        Always check current FWC seasons, size and bag limits before keeping anything.
+      </div>`;
+  out().innerHTML=h;
+}
+
+function setTab(t){ state.tab=t; render(); }
+function tog(el){
+  const d=el.parentElement.querySelector('.det');
+  d.classList.toggle('on');
+  el.querySelector('.arrow').textContent=d.classList.contains('on')?'▲':'▼';
+}
+
+/* ============ LOOKUP ============ */
+let seq=0;
+async function lookup(lat,lng,radiusOverride){
+  const my=++seq;
+  const radius = radiusOverride || (map.getZoom()>=12 ? 8 : (map.getZoom()>=10 ? 15 : 25));
+
+  if(marker) map.removeLayer(marker);
+  if(ring) map.removeLayer(ring);
+  marker=L.circleMarker([lat,lng],{radius:7,fillColor:'#e2622c',color:'#fff',weight:2,fillOpacity:.95}).addTo(map);
+  ring=L.circle([lat,lng],{radius:radius*1000,color:'#0b5fa5',weight:1,fillOpacity:.05,dashArray:'4 4'}).addTo(map);
+
+  status('Identifying the water body…');
+  let id, idErr=null;
+  try{ id = await identify(lat,lng); }
+  catch(err){ id={name:null,type:'unk',src:'lookup failed',tags:{}}; idErr=err.message||'network error'; }
+  if(my!==seq) return;
+
+  const gaz = gazLookup(lat,lng);
+  if(!id.name && gaz){ id={name:gaz.n, type:gaz.t, src:'offline list', tags:{}}; }
+
+  status(`${id.name||'Water'} — pulling fish records within ${radius} km…`);
+  let data={counts:[],recent:[],err:null};
+  try{ data = await fishHere(lat,lng,radius); }
+  catch(err){ data={counts:[],recent:[],err:err.message||'network error'}; }
+  if(my!==seq) return;
+
+  // If live records are unavailable, fall back to the built-in species list
+  const offline = (!data.counts.length && !!data.err && !!gaz);
+
+  state = {name:id.name, type:id.type, idsrc:id.src, lat, lng, radius,
+           counts:data.counts, recent:data.recent, tab:'common',
+           fishErr:data.err, idErr, offline, fallbackSp: gaz?gaz.sp:null};
+  render();
+}
+
+map.on('click', e=> lookup(e.latlng.lat, e.latlng.lng));
+
+/* ============ LOCATE ME ============ */
+let meDot=null;
+function locateMe(){
+  const btn=document.getElementById('b-loc');
+  if(!navigator.geolocation){
+    out().innerHTML='<div class="err">This browser does not support location.</div>';
+    return;
+  }
+  btn.textContent='📍 Locating…';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    btn.textContent='📍 Locate me';
+    const lat=pos.coords.latitude, lng=pos.coords.longitude;
+    if(meDot) map.removeLayer(meDot);
+    meDot=L.circleMarker([lat,lng],{radius:6,fillColor:'#0b5fa5',color:'#fff',weight:2,fillOpacity:1}).addTo(map);
+    map.setView([lat,lng],14);
+    lookup(lat,lng,8);
+  }, err=>{
+    btn.textContent='📍 Locate me';
+    const msg = err.code===1
+      ? 'Location permission was denied. Allow location for this site, or just tap the map.'
+      : 'Could not get your location ('+(err.message||'unknown')+'). Tap the map instead.';
+    out().innerHTML='<div class="err">'+esc(msg)+'</div>';
+  }, {enableHighAccuracy:true, timeout:12000, maximumAge:60000});
+}
+</script>
+</body>
+</html>
