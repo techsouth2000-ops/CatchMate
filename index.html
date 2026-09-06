@@ -33,13 +33,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .hint{font-size:11px;color:var(--mut);margin-bottom:10px;line-height:1.5}
 .card{border:1px solid var(--bd);border-radius:10px;margin-bottom:9px;overflow:hidden;background:#fff}
 .chead{padding:11px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
-.chead:hover{background:#fafbfc}
 .rank{font-size:10px;font-weight:700;background:var(--sec);color:#fff;border-radius:4px;padding:2px 6px;margin-right:6px}
 .fname{font-weight:650;font-size:14px}
 .sci{font-size:10px;color:var(--mut);font-style:italic;margin-top:2px}
 .cnt{font-size:10px;color:var(--mut);margin-top:3px}
 .arrow{color:var(--pri);font-size:11px;flex-shrink:0}
 .det{display:none;padding:0 12px 12px;border-top:1px solid var(--bd)}
+.fphoto{width:52px;height:52px;object-fit:cover;border-radius:8px;flex-shrink:0;background:#e8edf1}
+.fphoto.ph{display:flex;align-items:center;justify-content:center;font-size:24px}
+.fbig{width:100%;height:150px;object-fit:cover;border-radius:8px;margin-top:11px;background:#e8edf1}
+.reg{background:#fbfaf5;border:1px solid #e8e2cf;border-left:3px solid #b08a2e;border-radius:7px;padding:10px 11px;margin-top:12px;font-size:11px;line-height:1.6}
+.reg.cr{background:#fff2f2;border-color:#f2cccc;border-left-color:#c0392b}
+.rtitle{font-weight:700;font-size:10px;letter-spacing:.05em;color:#8a6a17;margin-bottom:6px}
+.reg.cr .rtitle{color:#c0392b}
+.rrow{margin-bottom:3px;color:#4a5560}
+.rnote{margin-top:5px;color:#6b7885;font-style:italic}
+.rflag{margin-top:7px;padding:6px 8px;background:#fff6e0;border-radius:5px;color:#8a6a17;font-weight:600}
+.rlink{display:inline-block;margin-top:8px;color:var(--pri);font-weight:700;text-decoration:none;font-size:11px}
+.rdate{margin-top:6px;font-size:9px;color:#9aa5b1}
 .det.on{display:block}
 .lbl{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--pri);margin:12px 0 6px}
 .bait{background:#f7f9fa;border-left:3px solid var(--sec);border-radius:5px;padding:9px 10px;margin-bottom:8px;font-size:12px}
@@ -537,6 +548,98 @@ async function runDiagnostics(){
   h+='<div class="foot">Tap the map to go back to fishing.</div>';
   out().innerHTML=h;
 }
+/* ============ FWC REGULATIONS ============
+   Checked against FWC / eRegulations on 6 Sep 2026. Florida manages redfish,
+   snook and seatrout by REGION, and reef fish seasons move by executive order,
+   so anything flagged regional:true must be confirmed on FWC before you keep a
+   fish. Every entry links to the official page. */
+const REG_CHECKED='6 Sep 2026';
+const FW='https://myfwc.com/fishing/freshwater/regulations/';
+const SW='https://myfwc.com/fishing/saltwater/recreational/';
+const REG={
+  redfish:{size:'18–27" slot (total length)',bag:'1 per person per day',season:'Open year-round in most regions',
+    note:'Managed in nine regions. Indian River Lagoon is CATCH AND RELEASE ONLY. Vessel limits vary by region.',regional:true,url:SW+'red-drum/'},
+  snook:{size:'28–33" slot on the Gulf/Panhandle side, 28–32" Northeast through Southeast',bag:'1 per person per day',
+    season:'Closed seasons vary by region — typically closed in the summer spawn and again in winter',
+    note:'Requires a snook permit on top of your saltwater licence. Hook and line only. Nine management regions.',regional:true,url:SW+'snook/'},
+  seatrout:{size:'15–19" slot; one over 19" per vessel (per person from shore), counted in your bag',
+    bag:'Varies by region, 2 to 5 per person per day',season:'Some regions close in February; Central East closes Nov–Dec',
+    note:'FWC moved seatrout to a nine-region system on 1 April 2026. Your bag limit depends entirely on which region you are standing in.',regional:true,url:SW+'spotted-seatrout/'},
+  tarpon:{size:'Catch and release only',bag:'0 — may not be harvested or possessed',
+    season:'Year-round catch and release',
+    note:'A tarpon over 40" must stay in the water — you cannot lift it out for a photo. A harvest tag exists only for pursuit of an IGFA record.',regional:false,url:SW+'tarpon/'},
+  sheepshead:{size:'12" minimum',bag:'8 per person per day',season:'Open year-round',note:'',regional:false,url:SW+'sheepshead/'},
+  flounder:{size:'14" minimum',bag:'5 per person per day',season:'CLOSED 15 Oct – 30 Nov each year',note:'',regional:false,url:SW+'flounder/'},
+  blackdrum:{size:'14–24" slot',bag:'5 per person per day',season:'Open year-round',
+    note:'One fish over 24" allowed per person. Large drum are usually released — they get coarse and wormy.',regional:false,url:SW},
+  mangrovesnapper:{size:'10" minimum',bag:'5 per person per day',season:'Open year-round',
+    note:'Counts inside the 10-fish aggregate snapper limit.',regional:false,url:SW+'snapper/'},
+  pompano:{size:'11" to the fork',bag:'6 per person per day',season:'Open year-round',note:'',regional:false,url:SW+'permit/'},
+  permit:{size:'11" fork; special rules in the Special Permit Zone',bag:'1 per person per day in most areas',
+    season:'Harvest closed in the Special Permit Zone 1 May – 31 July',
+    note:'South Florida and the Keys sit in the Special Permit Zone with tighter rules. Check before keeping.',regional:true,url:SW+'permit/'},
+  bonefish:{size:'Catch and release only',bag:'0 — may not be harvested',season:'Year-round catch and release',
+    note:'Must be released immediately, and kept in the water where possible.',regional:false,url:SW},
+  spanish:{size:'12" to the fork',bag:'15 per person per day',season:'Open year-round',note:'',regional:false,url:SW+'mackerel-spanish/'},
+  kingfish:{size:'24" to the fork',bag:'2 per person per day',season:'Open year-round in state waters',note:'',regional:false,url:SW+'mackerel-king/'},
+  tripletail:{size:'18" minimum',bag:'2 per person per day',season:'Open year-round',
+    note:'Must be landed in whole condition.',regional:false,url:SW+'tripletail/'},
+  cobia:{size:'36" to the fork',bag:'1 per person, maximum 2 per vessel per day',season:'Open year-round',note:'',regional:false,url:SW+'cobia/'},
+  grouper:{size:'Gag 24", red grouper 20", black grouper 24"',bag:'2 gag or red; 4 black — inside a 4-fish aggregate',
+    season:'SEASONS OPEN AND CLOSE BY ZONE AND BY YEAR — gag in particular has had very short windows',
+    note:'Reef fish seasons change by executive order, sometimes mid-season. Never assume last year applies. A State Reef Fish Survey sign-up is also required.',regional:true,url:SW+'grouper/'},
+  goliath:{size:'Harvest is by limited lottery permit only',bag:'Effectively 0 for almost everyone',
+    season:'Very limited state-waters harvest window; illegal to target in federal waters',
+    note:'Treat as catch and release. Do not lift a large one out of the water.',regional:true,url:SW+'goliath-grouper/'},
+  cuda:{size:'No statewide minimum; 15–36" fork in the southeast counties',bag:'2 per person in southeast counties, 1 may exceed 36"',
+    season:'Open year-round',note:'Collier, Monroe, Miami-Dade, Broward, Palm Beach and Martin counties have their own rules.',regional:true,url:SW},
+  bluefish:{size:'12" to the fork',bag:'10 per person per day',season:'Open year-round',note:'',regional:false,url:SW},
+  croaker:{size:'No statewide minimum for spot or Atlantic croaker',bag:'Check current FWC page — limits apply in some areas',
+    season:'Open year-round',note:'',regional:false,url:SW+'spot-and-atlantic-croaker/'},
+  mullet:{size:'No minimum',bag:'50 per person per day, 100 per vessel',season:'Open year-round',
+    note:'Cast-net rules vary by county.',regional:false,url:SW+'mullet/'},
+  jack:{size:'Unregulated',bag:'No statewide limit',season:'Open year-round',note:'Rarely eaten; almost always released.',regional:false,url:SW},
+  ladyfish:{size:'Unregulated',bag:'No statewide limit',season:'Open year-round',note:'',regional:false,url:SW},
+  saltcat:{size:'Unregulated',bag:'No statewide limit',season:'Open year-round',
+    note:'Venomous spines — handle with pliers, never bare-handed.',regional:false,url:SW},
+  // freshwater
+  lmb:{size:'Only one black bass 16" or longer per day',bag:'5 black bass per person per day',season:'Open year-round',
+    note:'Many individual lakes have their own stricter rules, and some are catch-and-release only. Check the specific water.',regional:true,url:FW+'black-bass/'},
+  bluegill:{size:'No minimum',bag:'50 per person per day, combined with other panfish',season:'Open year-round',note:'',regional:false,url:FW+'panfish/'},
+  redear:{size:'No minimum',bag:'50 per person per day, combined panfish',season:'Open year-round',note:'',regional:false,url:FW+'panfish/'},
+  crappie:{size:'No statewide minimum; some waters set one',bag:'25 per person per day',season:'Open year-round',note:'',regional:true,url:FW+'panfish/'},
+  catfish:{size:'No statewide minimum',bag:'No statewide limit on channel catfish',season:'Open year-round',note:'',regional:false,url:FW},
+  peacock:{size:'Only one may be 17" or longer',bag:'2 per person per day',season:'Open year-round',note:'',regional:false,url:FW+'butterfly-peacock-bass/'},
+  gar:{size:'No minimum',bag:'No statewide limit',season:'Open year-round',note:'',regional:false,url:FW},
+  bowfin:{size:'No minimum',bag:'No statewide limit',season:'Open year-round',note:'',regional:false,url:FW},
+  tilapia:{size:'No minimum',bag:'No limit — non-native',season:'Open year-round',
+    note:'Non-native. May not be transported live.',regional:false,url:FW+'nonnative/'},
+  mayan:{size:'No minimum',bag:'No limit — non-native',season:'Open year-round',note:'Non-native. May not be transported live.',regional:false,url:FW+'nonnative/'},
+  knifefish:{size:'No minimum',bag:'No limit — non-native',season:'Open year-round',note:'Non-native. May not be transported live.',regional:false,url:FW+'nonnative/'}
+};
+
+function regBlock(key){
+  const r=key?REG[key]:null;
+  if(!r){
+    return `<div class="reg">
+      <div class="rtitle">⚖️ Legal limits</div>
+      <div class="rrow">No limits on file in this app for that species. Confirm on FWC before keeping it.</div>
+      <a class="rlink" href="${SW}" target="_blank" rel="noopener">Open FWC regulations →</a>
+    </div>`;
+  }
+  const cr = /catch and release/i.test(r.size);
+  return `<div class="reg${cr?' cr':''}">
+    <div class="rtitle">⚖️ Legal limits${cr?' — CATCH AND RELEASE ONLY':''}</div>
+    <div class="rrow"><b>Size:</b> ${esc(r.size)}</div>
+    <div class="rrow"><b>Bag:</b> ${esc(r.bag)}</div>
+    <div class="rrow"><b>Season:</b> ${esc(r.season)}</div>
+    ${r.note?`<div class="rrow rnote">${esc(r.note)}</div>`:''}
+    ${r.regional?`<div class="rflag">⚠️ This species is managed by region or by individual water — the limit where you are standing may differ. Check FWC before you keep one.</div>`:''}
+    <a class="rlink" href="${esc(r.url)}" target="_blank" rel="noopener">Official FWC page →</a>
+    <div class="rdate">Checked ${REG_CHECKED}. Rules change, sometimes mid-season.</div>
+  </div>`;
+}
+
 /* ============ RENDER ============ */
 let marker=null, ring=null, state={};
 const out=()=>document.getElementById('out');
@@ -573,13 +676,16 @@ function render(){
     state.fallbackSp.forEach(k=>{
       const t=T[k]; if(!t) return;
       const common=Object.keys(ALIAS).find(a=>ALIAS[a]===k)||k;
-      targets.push({c:{count:null},t,common});
+      targets.push({c:{count:null},t,common,key:k,photo:null});
     });
   } else {
     (counts||[]).forEach(c=>{
-      const common=c.taxon&&(c.taxon.preferred_common_name||c.taxon.name);
-      const t=tackleFor(common);
-      (t?targets:others).push({c,t,common});
+      const tx=c.taxon||{};
+      const common=tx.preferred_common_name||tx.name;
+      const key=common?ALIAS[common.toLowerCase().trim()]:null;
+      const t=key?T[key]||null:null;
+      const photo=tx.default_photo?(tx.default_photo.medium_url||tx.default_photo.square_url):null;
+      (t?targets:others).push({c,t,common,key,photo});
     });
   }
 
@@ -611,14 +717,19 @@ function render(){
       const t=x.t, sci=x.c.taxon&&x.c.taxon.name;
       h+=`<div class="card">
         <div class="chead" onclick="tog(this)">
-          <div>
-            <div><span class="rank">#${i+1}</span><span class="fname">${t.e} ${esc(titleCase(x.common))}</span></div>
+          ${x.photo
+            ? `<img class="fphoto" src="${esc(x.photo)}" alt="${esc(x.common)}" loading="lazy">`
+            : `<div class="fphoto ph">${t.e}</div>`}
+          <div style="flex:1;min-width:0">
+            <div><span class="rank">#${i+1}</span><span class="fname">${esc(titleCase(x.common))}</span></div>
             <div class="sci">${esc(sci||'')}</div>
             <div class="cnt">${x.c.count==null?'commonly caught here':x.c.count+' record'+(x.c.count===1?'':'s')+' nearby'} · ${esc(t.d)} · ⭐ ${t.s}/10</div>
           </div><div class="arrow">▼</div>
         </div>
         <div class="det">
+          ${x.photo?`<img class="fbig" src="${esc(x.photo)}" alt="${esc(x.common)}" loading="lazy">`:''}
           <div style="font-size:12px;color:#4a5560;line-height:1.6;margin-top:11px">${esc(t.about)}</div>
+          ${regBlock(x.key)}
           <div class="lbl">Bait &amp; rigging</div>`;
       t.baits.forEach(b=>{
         h+=`<div class="bait">
@@ -662,8 +773,8 @@ function render(){
   }
 
   h+=`<div class="foot">
-        Water body from OpenStreetMap (Overpass API). Fish records from iNaturalist — these are verified public observations, which include angler catches, surveys and sightings, so they show what species are actually documented in the area rather than a guess.<br><br>
-        Always check current FWC seasons, size and bag limits before keeping anything.
+        Water body from OpenStreetMap (Overpass API). Fish records and identification photos from iNaturalist — verified public observations, so they show what is actually documented in the area rather than a guess.<br><br>
+        <b>Limits shown were checked against FWC on ${REG_CHECKED} and are a starting point, not legal advice.</b> Florida manages redfish, snook and seatrout by region, and reef fish seasons can change by executive order mid-season. Confirm on myfwc.com before you keep anything, and carry the right licence and permits.
       </div>`;
   out().innerHTML=h;
 }
