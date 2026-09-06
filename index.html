@@ -66,6 +66,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .when{background:#f0fbf5;border-left:3px solid var(--sec);border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.7;margin-top:8px;color:#41505c}
 .nod{font-size:11px;color:var(--mut);line-height:1.6;padding:10px 0}
 .obsmeta{background:#f4f7fa;border-left:3px solid var(--mut);border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.7;color:#4a5560;margin-top:11px}
+.sol{background:linear-gradient(135deg,#1b2a3a 0%,#22384c 100%);color:#fff;border-radius:10px;padding:13px;margin-top:4px}
+.solhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.solph{font-size:15px;font-weight:700}
+.solsub{font-size:11px;color:#a8bccd;margin-top:3px}
+.solrate{font-size:10px;font-weight:700;padding:4px 9px;border-radius:20px;flex-shrink:0}
+.solnote{font-size:10px;color:#9aa5b1;line-height:1.6;margin-top:9px}
+.sol .solnote{color:#8fa6ba}
+.win{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--bd);border-radius:8px;padding:10px 11px;margin-bottom:7px}
+.win.major{border-left:4px solid var(--sec);background:#f6fdf9}
+.win.minor{border-left:4px solid #b08a2e;background:#fdfbf5}
+.win.live{box-shadow:0 0 0 2px var(--sec);background:#eafaf1}
+.win.past{opacity:.45}
+.wint{font-size:13px;font-weight:700}
+.winn{font-size:10px;color:var(--mut);margin-top:2px}
+.winb{font-size:9px;font-weight:700;color:var(--mut);letter-spacing:.05em}
+.win.live .winb{color:var(--sec)}
+.stn{font-size:11px;color:var(--mut);margin-bottom:8px}
+.tide{display:flex;justify-content:space-between;align-items:center;border-radius:8px;padding:9px 11px;margin-bottom:6px;border:1px solid var(--bd)}
+.tide.hi{border-left:4px solid var(--pri);background:#f4f9ff}
+.tide.lo{border-left:4px solid #8b95a1;background:#fafbfc}
+.tidet{font-size:13px;font-weight:650}
+.tidesub{font-size:10px;color:var(--mut);margin-top:2px}
+.tidein{font-size:11px;color:var(--mut);font-weight:600}
 .obs img{width:46px;height:46px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--bd)}
 .on1{font-size:13px;font-weight:600}
 .on2{font-size:10px;color:var(--mut);margin-top:2px}
@@ -84,7 +107,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div class="side">
     <div class="head">
       <div class="logo">🎣 CatchMate</div>
-      <div class="tag">Tap any water in Florida — real records, real tackle <span style="color:#0a8f5f;font-weight:700">· v5 full-photos</span></div>
+      <div class="tag">Tap any water in Florida — real records, real tackle <span style="color:#0a8f5f;font-weight:700">· v6 tides+bite</span></div>
     </div>
     <div class="body" id="out">
       <div class="empty">
@@ -707,6 +730,222 @@ function regBlock(key){
   </div>`;
 }
 
+/* ============ SOLUNAR (computed on device, no network) ============
+   Moon/sun position math adapted from the standard astronomical routines
+   used by SunCalc (Vladimir Agafonkin, BSD). Feeding windows follow the
+   classic solunar model: major periods when the moon is overhead or
+   underfoot, minor periods at moonrise and moonset. */
+const RAD=Math.PI/180, DAYMS=864e5, J1970=2440588, J2000=2451545, OBL=RAD*23.4397;
+const toJulian=d=>d.valueOf()/DAYMS-0.5+J1970;
+const toDays=d=>toJulian(d)-J2000;
+const rightAsc=(l,b)=>Math.atan2(Math.sin(l)*Math.cos(OBL)-Math.tan(b)*Math.sin(OBL),Math.cos(l));
+const decl=(l,b)=>Math.asin(Math.sin(b)*Math.cos(OBL)+Math.cos(b)*Math.sin(OBL)*Math.sin(l));
+const sidereal=(d,lw)=>RAD*(280.16+360.9856235*d)-lw;
+const altOf=(H,phi,dec)=>Math.asin(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H));
+
+function moonCoords(d){
+  const L=RAD*(218.316+13.176396*d), M=RAD*(134.963+13.064993*d), F=RAD*(93.272+13.229350*d);
+  const l=L+RAD*6.289*Math.sin(M), b=RAD*5.128*Math.sin(F), dt=385001-20905*Math.cos(M);
+  return {ra:rightAsc(l,b),dec:decl(l,b),dist:dt};
+}
+function sunCoords(d){
+  const M=RAD*(357.5291+0.98560028*d);
+  const C=RAD*(1.9148*Math.sin(M)+0.02*Math.sin(2*M)+0.0003*Math.sin(3*M));
+  const L=M+C+RAD*102.9372+Math.PI;
+  return {ra:rightAsc(L,0),dec:decl(L,0)};
+}
+function moonAlt(date,lat,lng){
+  const lw=RAD*-lng, phi=RAD*lat, d=toDays(date), c=moonCoords(d);
+  return altOf(sidereal(d,lw)-c.ra,phi,c.dec);
+}
+function sunAlt(date,lat,lng){
+  const lw=RAD*-lng, phi=RAD*lat, d=toDays(date), c=sunCoords(d);
+  return altOf(sidereal(d,lw)-c.ra,phi,c.dec);
+}
+function moonPhase(date){
+  const d=toDays(date), s=sunCoords(d), m=moonCoords(d), sdist=149598000;
+  const phi=Math.acos(Math.sin(s.dec)*Math.sin(m.dec)+Math.cos(s.dec)*Math.cos(m.dec)*Math.cos(s.ra-m.ra));
+  const inc=Math.atan2(sdist*Math.sin(phi),m.dist-sdist*Math.cos(phi));
+  const angle=Math.atan2(Math.cos(s.dec)*Math.sin(s.ra-m.ra),
+    Math.sin(s.dec)*Math.cos(m.dec)-Math.cos(s.dec)*Math.sin(m.dec)*Math.cos(s.ra-m.ra));
+  const phase=0.5+0.5*inc*(angle<0?-1:1)/Math.PI;
+  return {phase, illum:(1+Math.cos(inc))/2};
+}
+function phaseName(p){
+  if(p<0.03||p>0.97) return 'New moon';
+  if(p<0.22) return 'Waxing crescent';
+  if(p<0.28) return 'First quarter';
+  if(p<0.47) return 'Waxing gibbous';
+  if(p<0.53) return 'Full moon';
+  if(p<0.72) return 'Waning gibbous';
+  if(p<0.78) return 'Last quarter';
+  return 'Waning crescent';
+}
+function phaseEmoji(p){
+  const i=Math.round(p*8)%8;
+  return ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'][i];
+}
+/* Scan a day at 10-minute steps for rise, set and the overhead/underfoot times */
+function scanDay(altFn,base,lat,lng){
+  const step=10*60000, n=(24*60)/10;
+  let prev=altFn(base,lat,lng), rise=null,set=null,peak=base,low=base,pv=prev,lv=prev;
+  for(let i=1;i<=n;i++){
+    const t=new Date(base.getTime()+i*step), a=altFn(t,lat,lng);
+    if(prev<0&&a>=0&&!rise) rise=t;
+    if(prev>0&&a<=0&&!set) set=t;
+    if(a>pv){pv=a;peak=t;}
+    if(a<lv){lv=a;low=t;}
+    prev=a;
+  }
+  return {rise,set,peak,low};
+}
+function localMidnight(d){ return new Date(d.getFullYear(),d.getMonth(),d.getDate(),0,0,0,0); }
+const fmtT=d=>d?d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'—';
+
+function solunar(lat,lng,when){
+  const now=when||new Date(), base=localMidnight(now);
+  const m=scanDay(moonAlt,base,lat,lng), s=scanDay(sunAlt,base,lat,lng);
+  const ph=moonPhase(now);
+  const win=(c,mins,kind,label)=>c?{start:new Date(c.getTime()-mins*60000),end:new Date(c.getTime()+mins*60000),kind,label,peak:c}:null;
+  let periods=[
+    win(m.peak,60,'major','Moon overhead'),
+    win(m.low,60,'major','Moon underfoot'),
+    win(m.rise,45,'minor','Moonrise'),
+    win(m.set,45,'minor','Moonset')
+  ].filter(Boolean).sort((a,b)=>a.start-b.start);
+  // a window straddling sunrise or sunset is the strongest of all
+  periods.forEach(p=>{
+    p.prime=[s.rise,s.set].some(t=>t && Math.abs(t-p.peak)<75*60000);
+    p.active = now>=p.start && now<=p.end;
+  });
+  const d=Math.min(Math.abs(ph.phase-0),Math.abs(ph.phase-0.5),Math.abs(ph.phase-1));
+  const rating = d<0.045?{t:'Excellent',c:'#0a8f5f'} : d<0.11?{t:'Good',c:'#4a9d3f'}
+               : d<0.20?{t:'Fair',c:'#b08a2e'} : {t:'Average',c:'#8b95a1'};
+  return {periods,sun:s,moon:m,phase:ph,rating,now};
+}
+
+/* ============ TIDES (NOAA CO-OPS) ============ */
+const CO_OPS='https://api.tidesandcurrents.noaa.gov';
+// Verified primary Florida stations, used if the full station list will not load
+const FALLBACK_STATIONS=[
+  {id:'8720030',name:'Fernandina Beach',lat:30.671,lng:-81.466},
+  {id:'8720218',name:'Mayport (Bar Pilots Dock)',lat:30.398,lng:-81.428},
+  {id:'8720587',name:'St. Augustine Beach',lat:29.856,lng:-81.265},
+  {id:'8721604',name:'Trident Pier, Port Canaveral',lat:28.416,lng:-80.593},
+  {id:'8722670',name:'Lake Worth Pier',lat:26.613,lng:-80.034},
+  {id:'8723214',name:'Virginia Key',lat:25.731,lng:-80.162},
+  {id:'8724580',name:'Key West',lat:24.551,lng:-81.808},
+  {id:'8725110',name:'Naples, Gulf of Mexico',lat:26.132,lng:-81.807},
+  {id:'8725520',name:'Fort Myers',lat:26.647,lng:-81.871},
+  {id:'8726384',name:'Port Manatee',lat:27.638,lng:-82.562},
+  {id:'8726520',name:'St. Petersburg',lat:27.760,lng:-82.627},
+  {id:'8726607',name:'Old Port Tampa',lat:27.858,lng:-82.553},
+  {id:'8726724',name:'Clearwater Beach',lat:27.978,lng:-82.832},
+  {id:'8727520',name:'Cedar Key',lat:29.135,lng:-83.032},
+  {id:'8728690',name:'Apalachicola',lat:29.727,lng:-84.981},
+  {id:'8729108',name:'Panama City',lat:30.152,lng:-85.667},
+  {id:'8729210',name:'Panama City Beach',lat:30.213,lng:-85.879},
+  {id:'8729840',name:'Pensacola',lat:30.404,lng:-87.211}
+];
+let STATION_CACHE=null;
+async function stationList(){
+  if(STATION_CACHE) return STATION_CACHE;
+  try{
+    const d=await getJSON(`${CO_OPS}/mdapi/prod/webapi/stations.json?type=tidepredictions&units=english`,20000);
+    const fl=(d.stations||[]).filter(s=>s.lat>23.5&&s.lat<31.5&&s.lng>-88.5&&s.lng<-79.5)
+      .map(s=>({id:s.id,name:s.name,lat:s.lat,lng:s.lng}));
+    STATION_CACHE = fl.length>20 ? fl : FALLBACK_STATIONS;
+    console.log('tide stations loaded:',STATION_CACHE.length);
+  }catch(e){
+    console.warn('station list failed, using fallback:',e.message);
+    STATION_CACHE=FALLBACK_STATIONS;
+  }
+  return STATION_CACHE;
+}
+function haversineKm(a,b,c,d){
+  const R=6371,dLat=(c-a)*RAD,dLon=(d-b)*RAD;
+  const x=Math.sin(dLat/2)**2+Math.cos(a*RAD)*Math.cos(c*RAD)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+const ymd=d=>d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+async function tidesFor(lat,lng){
+  const st=await stationList();
+  let best=null,bd=1e9;
+  st.forEach(s=>{const d=haversineKm(lat,lng,s.lat,s.lng); if(d<bd){bd=d;best=s;}});
+  if(!best||bd>120) return {station:null,dist:bd,preds:[]};
+  const today=new Date(), tmr=new Date(today.getTime()+DAYMS);
+  const url=`${CO_OPS}/api/prod/datagetter?product=predictions&application=CatchMate`+
+    `&begin_date=${ymd(today)}&end_date=${ymd(tmr)}&datum=MLLW&station=${best.id}`+
+    `&time_zone=lst_ldt&units=english&interval=hilo&format=json`;
+  const d=await getJSON(url,20000);
+  const preds=(d.predictions||[]).map(p=>({t:new Date(p.t.replace(' ','T')),v:parseFloat(p.v),hi:p.type==='H'}));
+  let temp=null;
+  try{
+    const w=await getJSON(`${CO_OPS}/api/prod/datagetter?product=water_temperature&application=CatchMate`+
+      `&date=latest&station=${best.id}&time_zone=lst_ldt&units=english&format=json`,12000);
+    if(w.data&&w.data[0]) temp=parseFloat(w.data[0].v);
+  }catch(e){}
+  return {station:best,dist:bd,preds,temp};
+}
+function condHTML(){
+  const {lat,lng,type,tide,tideErr}=state;
+  const s=solunar(lat,lng);
+  const now=s.now;
+  let h='';
+
+  // --- bite rating ---
+  h+=`<div class="sol">
+        <div class="solhead">
+          <div><div class="solph">${phaseEmoji(s.phase.phase)} ${esc(phaseName(s.phase.phase))}</div>
+          <div class="solsub">${Math.round(s.phase.illum*100)}% lit · ☀️ ${fmtT(s.sun.rise)} – ${fmtT(s.sun.set)}</div></div>
+          <div class="solrate" style="background:${s.rating.c}">${s.rating.t}</div>
+        </div>
+        <div class="solnote">Solunar theory: fish feed hardest when the moon is directly overhead or underfoot, and again at moonrise and moonset. New and full moons are strongest.</div>
+      </div>`;
+
+  // --- feeding windows ---
+  const upcoming=s.periods.filter(p=>p.end>=now);
+  h+=`<div class="lbl">Feeding windows today</div>`;
+  s.periods.forEach(p=>{
+    const past=p.end<now;
+    h+=`<div class="win ${p.kind}${p.active?' live':''}${past?' past':''}">
+          <div class="winl">
+            <div class="wint">${fmtT(p.start)} – ${fmtT(p.end)}</div>
+            <div class="winn">${esc(p.label)} · ${p.kind==='major'?'Major':'Minor'}${p.prime?' · 🔥 overlaps sun':''}</div>
+          </div>
+          <div class="winb">${p.active?'NOW':past?'past':'later'}</div>
+        </div>`;
+  });
+  if(upcoming.length===0) h+=`<div class="nod">All of today's windows have passed. Tomorrow's shift about 50 minutes later.</div>`;
+
+  // --- tides ---
+  h+=`<div class="lbl" style="margin-top:16px">Tide</div>`;
+  if(type==='fresh'){
+    h+=`<div class="nod">This is fresh water — no tide. Use the feeding windows above, plus first and last light.</div>`;
+  } else if(tideErr){
+    h+=`<div class="err">Tide lookup failed: ${esc(tideErr)}</div>`;
+  } else if(!tide||!tide.station){
+    h+=`<div class="nod">No NOAA tide station within range of this spot.</div>`;
+  } else {
+    const nxt=tide.preds.filter(p=>p.t>=now).slice(0,6);
+    h+=`<div class="stn">📍 ${esc(tide.station.name)} · ${tide.dist.toFixed(0)} km away${tide.temp?` · 🌡️ ${tide.temp.toFixed(0)}°F water`:''}</div>`;
+    if(!nxt.length) h+=`<div class="nod">No upcoming predictions returned.</div>`;
+    nxt.forEach((p,i)=>{
+      const mins=Math.round((p.t-now)/60000);
+      const inTxt = mins<60?`in ${mins} min` : `in ${Math.floor(mins/60)}h ${mins%60}m`;
+      h+=`<div class="tide ${p.hi?'hi':'lo'}">
+            <div><div class="tidet">${p.hi?'▲ High':'▼ Low'} · ${fmtT(p.t)}</div>
+            <div class="tidesub">${p.v.toFixed(1)} ft${i===0?' · next':''}</div></div>
+            <div class="tidein">${esc(inTxt)}</div>
+          </div>`;
+    });
+    h+=`<div class="solnote" style="margin-top:8px">Moving water beats slack water. The hour either side of a tide change is usually the best bite, especially where the current squeezes past a point, bridge or pass.</div>`;
+  }
+
+  h+=`<div class="foot">Feeding windows are calculated on your device from the moon's position — they work with no signal. Tide predictions from NOAA CO-OPS. Predictions are astronomical; wind and pressure can shift real water levels.</div>`;
+  return h;
+}
+
 /* ============ RENDER ============ */
 let marker=null, ring=null, state={};
 const out=()=>document.getElementById('out');
@@ -762,8 +1001,9 @@ function render(){
   h+=`<div class="pill ${cls}">${label}</div>`;
 
   h+=`<div class="tabs">
-        <button class="tab ${state.tab==='common'?'on':''}" onclick="setTab('common')">Most recorded</button>
-        <button class="tab ${state.tab==='recent'?'on':''}" onclick="setTab('recent')">Recent records</button>
+        <button class="tab ${state.tab==='common'?'on':''}" onclick="setTab('common')">Fish here</button>
+        <button class="tab ${state.tab==='recent'?'on':''}" onclick="setTab('recent')">Recent</button>
+        <button class="tab ${state.tab==='cond'?'on':''}" onclick="setTab('cond')">Tides &amp; bite</button>
       </div>`;
 
   if(state.offline || state.idErr || fishErr){
@@ -801,7 +1041,7 @@ function render(){
       h+=others.slice(0,18).map(o=>`${esc(titleCase(o.common||'unknown'))} <span style="color:#9aa5b1">(${o.c.count})</span>`).join(' · ');
       h+=`</div>`;
     }
-  } else {
+  } else if(state.tab==='recent'){
     h+=`<div class="hint">Most recent verified fish records within ${radius} km, newest first. Tap one for bait, rigging and legal limits.</div>`;
     if(!(recent||[]).length){
       h+=`<div class="nod">No recent records within ${radius} km.</div>`;
@@ -834,6 +1074,8 @@ function render(){
         <div class="det">${detailHTML(t,key,big,cn,meta)}</div>
       </div>`;
     });
+  } else {
+    h+=condHTML();
   }
 
   h+=`<div class="foot">
@@ -881,8 +1123,16 @@ async function lookup(lat,lng,radiusOverride){
 
   state = {name:id.name, type:id.type, idsrc:id.src, lat, lng, radius,
            counts:data.counts, recent:data.recent, tab:'common',
-           fishErr:data.err, idErr, offline, fallbackSp: gaz?gaz.sp:null};
+           fishErr:data.err, idErr, offline, fallbackSp: gaz?gaz.sp:null,
+           tide:null, tideErr:null};
   render();
+
+  // tides load in the background so the fish list is not held up
+  if(id.type!=='fresh'){
+    tidesFor(lat,lng)
+      .then(t=>{ if(my===seq){ state.tide=t; if(state.tab==='cond') render(); } })
+      .catch(e=>{ if(my===seq){ state.tideErr=e.message||'network error'; if(state.tab==='cond') render(); } });
+  }
 }
 
 map.on('click', e=> lookup(e.latlng.lat, e.latlng.lng));
