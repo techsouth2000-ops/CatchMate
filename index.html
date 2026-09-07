@@ -216,7 +216,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v15 full-map</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v16 miles</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -998,6 +998,9 @@ function haversineKm(a,b,c,d){
   const x=Math.sin(dLat/2)**2+Math.cos(a*RAD)*Math.cos(c*RAD)*Math.sin(dLon/2)**2;
   return 2*R*Math.asin(Math.sqrt(x));
 }
+/* Distances are computed in km internally but always shown in miles. */
+const KM_PER_MI=1.609344;
+function mi(km,dp){ return (km/KM_PER_MI).toFixed(dp==null?1:dp); }
 const ymd=d=>d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
 async function tidesFor(lat,lng){
   const st=await stationList();
@@ -1071,7 +1074,7 @@ function condHTML(){
     const tgt=isTom?new Date(now.getTime()+DAYMS):now;
     const sameDay=d=>d.getFullYear()===tgt.getFullYear()&&d.getMonth()===tgt.getMonth()&&d.getDate()===tgt.getDate();
     const rows=tide.preds.filter(p=>sameDay(p.t));
-    h+=`<div class="stn">📍 ${esc(tide.station.name)} · ${tide.dist.toFixed(0)} km away${tide.temp?` · 🌡️ ${tide.temp.toFixed(0)}°F water`:''}</div>`;
+    h+=`<div class="stn">📍 ${esc(tide.station.name)} · ${mi(tide.dist,0)} mi away${tide.temp?` · 🌡️ ${tide.temp.toFixed(0)}°F water`:''}</div>`;
     if(!rows.length){
       h+=`<div class="nod">No predictions returned for ${isTom?'tomorrow':'today'}.</div>`;
     }
@@ -1380,7 +1383,7 @@ async function loadFeed(){
   try{
     let q=sb.from('public_catches').select('*').order('created_at',{ascending:false}).limit(40);
     if(st.lat!=null){
-      const d=1.2; // degrees, roughly 130 km
+      const d=1.2; // degrees, roughly 80 miles
       q=q.gte('lat',st.lat-d).lte('lat',st.lat+d).gte('lng',st.lng-d).lte('lng',st.lng+d);
     }
     const {data,error}=await q;
@@ -1779,7 +1782,7 @@ function showShopList(){
       <div class="slic">${s.icon}</div>
       <div style="flex:1;min-width:0;text-align:left">
         <div class="slname">${esc(s.name)}${s.derived?' <span class="chip">name inferred</span>':''}</div>
-        <div class="slsub">${esc(s.label)} · ${s.dist.toFixed(1)} km${stars} ${badge}</div>
+        <div class="slsub">${esc(s.label)} · ${mi(s.dist)} mi${stars} ${badge}</div>
       </div><div class="arrow">›</div></button>`;
   }).join('');
 
@@ -1840,7 +1843,7 @@ function openShop(i){
 
   openModal(`
     <div class="mtitle">${s.icon} ${esc(s.name)}</div>
-    <div class="msub">${esc(s.label)} · ${s.dist.toFixed(1)} km away ${badge}
+    <div class="msub">${esc(s.label)} · ${mi(s.dist)} mi away ${badge}
       ${s.rating?`<br>★ ${s.rating.toFixed(1)} from ${s.ratings} Google review${s.ratings===1?'':'s'}`:''}
       ${s.derived?'<br><span class="chip">name inferred</span> OpenStreetMap has no name on this ramp itself — this is the named park or lot around it.':''}</div>
 
@@ -1937,9 +1940,9 @@ function render(){
   if(state.tab==='common'){
     h+=`<div class="hint">${state.offline
       ? 'Built-in species list for this area — live records unavailable right now. Tap a fish for bait, rigging and technique.'
-      : `Ranked by verified iNaturalist records within ${radius} km of your tap. Tap a fish for bait, rigging and technique.`}</div>`;
+      : `Ranked by verified iNaturalist records within ${mi(radius,0)} miles of your tap. Tap a fish for bait, rigging and technique.`}</div>`;
     if(!targets.length && !others.length){
-      h+=`<div class="nod">No fish records logged within ${radius} km yet. That usually means the spot is lightly documented, not that it is empty. Try tapping a nearby pass, bridge or main basin.</div>`;
+      h+=`<div class="nod">No fish records logged within ${mi(radius,0)} miles yet. That usually means the spot is lightly documented, not that it is empty. Try tapping a nearby pass, bridge or main basin.</div>`;
     }
     targets.forEach((x,i)=>{
       const t=x.t, sci=x.c.taxon&&x.c.taxon.name;
@@ -1963,9 +1966,9 @@ function render(){
       h+=`</div>`;
     }
   } else if(state.tab==='recent'){
-    h+=`<div class="hint">Most recent verified fish records within ${radius} km, newest first. Tap one for bait, rigging and legal limits.</div>`;
+    h+=`<div class="hint">Most recent verified fish records within ${mi(radius,0)} miles, newest first. Tap one for bait, rigging and legal limits.</div>`;
     if(!(recent||[]).length){
-      h+=`<div class="nod">No recent records within ${radius} km.</div>`;
+      h+=`<div class="nod">No recent records within ${mi(radius,0)} miles.</div>`;
     }
     (recent||[]).forEach(o=>{
       const tx=o.taxon||{}, cn=tx.preferred_common_name||tx.name||'Unidentified fish';
@@ -2062,7 +2065,7 @@ async function lookup(lat,lng,radiusOverride){
   const gaz = gazLookup(lat,lng);
   if(!id.name && gaz){ id={name:gaz.n, type:gaz.t, src:'offline list', tags:{}}; }
 
-  status(`${id.name||'Water'} — pulling fish records within ${radius} km…`);
+  status(`${id.name||'Water'} — pulling fish records within ${mi(radius,0)} miles…`);
   let data={counts:[],recent:[],err:null};
   try{ data = await fishHere(lat,lng,radius); }
   catch(err){ data={counts:[],recent:[],err:err.message||'network error'}; }
