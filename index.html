@@ -207,7 +207,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v11 shops-fixed</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v12 shop-names</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -495,13 +495,19 @@ async function getJSON(url,ms){
   return r.json();
 }
 async function overpass(q){
-  let lastErr;
-  for(const url of OVERPASS){
-    try{
-      return await getJSON(url+'?data='+encodeURIComponent(q), 22000);
-    }catch(e){ lastErr=e; console.warn('overpass endpoint failed:',url,e.message); }
+  // Race the mirrors instead of trying them one at a time. Overpass servers
+  // vary wildly in load, so the sequential version waited out a slow one
+  // before even trying a fast one.
+  const url=u=>u+'?data='+encodeURIComponent(q);
+  const tries=OVERPASS.map(u=>getJSON(url(u),25000));
+  tries.forEach(p=>p.catch(()=>{}));   // losers must not raise unhandled rejections
+  if(typeof Promise.any==='function'){
+    try{ return await Promise.any(tries); }
+    catch(e){ throw new Error('all Overpass mirrors failed or timed out'); }
   }
-  throw lastErr || new Error('All Overpass endpoints failed');
+  let lastErr;
+  for(const p of tries){ try{ return await p; }catch(e){ lastErr=e; } }
+  throw lastErr||new Error('all Overpass mirrors failed');
 }
 
 // Score a candidate so we prefer a named lake/bay over a generic coastline
@@ -1464,30 +1470,76 @@ function feedHTML(){
 let shopLayer=null, SHOPS=[], shopsOn=false;
 
 async function fetchShops(lat,lng,radiusM){
-  const r=radiusM||20000;
+  const r=radiusM||25000;
   const q=`[out:json][timeout:25];(`+
     `nwr(around:${r},${lat},${lng})["shop"="fishing"];`+
     `nwr(around:${r},${lat},${lng})["shop"="bait"];`+
-    `nwr(around:${r},${lat},${lng})["shop"="outdoor"]["fishing"="yes"];`+
-    `nwr(around:${r},${lat},${lng})["shop"="sports"]["sport"="fishing"];`+
+    `nwr(around:${r},${lat},${lng})["shop"="outdoor"];`+
+    `nwr(around:${r},${lat},${lng})["shop"="hunting"];`+
+    `nwr(around:${r},${lat},${lng})["shop"="sports"]["sport"~"fishing"];`+
+    `nwr(around:${r},${lat},${lng})["fishing"="yes"]["shop"];`+
     `nwr(around:${r},${lat},${lng})["leisure"="marina"];`+
     `nwr(around:${r},${lat},${lng})["leisure"="slipway"];`+
-    `);out tags center 80;`;
+    `nwr(around:${r},${lat},${lng})["leisure"="fishing"];`+
+    `);out tags center 120;`;
   const d=await overpass(q);
-  return (d.elements||[]).map(e=>{
+  const list=(d.elements||[]).map(e=>{
     const t=e.tags||{};
     const c=e.center||(e.lat!=null?{lat:e.lat,lon:e.lon}:null);
     if(!c) return null;
     let kind='shop', icon='🪱', label='Bait & tackle';
     if(t.leisure==='marina'){ kind='marina'; icon='⚓'; label='Marina'; }
     else if(t.leisure==='slipway'){ kind='ramp'; icon='🛥️'; label='Boat ramp'; }
-    return {
-      id:(e.type||'n')+e.id, kind, icon, label,
-      name:t.name||(kind==='ramp'?'Boat ramp':kind==='marina'?'Marina':'Bait & tackle'),
-      lat:c.lat, lng:c.lon, tags:t,
-      dist:haversineKm(lat,lng,c.lat,c.lon)
-    };
+    else if(t.leisure==='fishing'){ kind='pier'; icon='🎣'; label='Fishing spot'; }
+    else if(t.shop==='outdoor'||t.shop==='hunting'||t.shop==='sports'){ label='Outdoor & sports'; }
+    const nm = t.name || t.operator || t.brand || t.ref || null;
+    return { id:(e.type||'n')+e.id, kind, icon, label,
+      name:nm, named:!!nm, lat:c.lat, lng:c.lon, tags:t,
+      dist:haversineKm(lat,lng,c.lat,c.lon) };
   }).filter(Boolean).sort((a,b)=>a.dist-b.dist);
+
+  await nameTheUnnamed(list);
+  list.forEach(s=>{
+    if(!s.name) s.name = s.kind==='ramp'?'Unnamed boat ramp'
+                       : s.kind==='marina'?'Unnamed marina'
+                       : s.kind==='pier'?'Unnamed fishing spot':'Bait & tackle';
+  });
+  return list;
+}
+
+/* OSM rarely puts a name on a slipway itself — the name usually lives on the
+   park, marina or parking area around it. One extra query borrows it, and the
+   result is flagged so the UI can say the name was inferred. */
+async function nameTheUnnamed(list){
+  const blanks=list.filter(s=>!s.name).slice(0,14);
+  if(!blanks.length) return;
+  const clauses=blanks.map(s=>
+    `way(around:300,${s.lat.toFixed(5)},${s.lng.toFixed(5)})["name"]["leisure"];`+
+    `way(around:300,${s.lat.toFixed(5)},${s.lng.toFixed(5)})["name"]["amenity"~"parking|boat_rental|marina"];`+
+    `nwr(around:300,${s.lat.toFixed(5)},${s.lng.toFixed(5)})["name"]["boundary"="protected_area"];`+
+    `node(around:400,${s.lat.toFixed(5)},${s.lng.toFixed(5)})["name"]["place"];`
+  ).join('');
+  try{
+    const d=await overpass(`[out:json][timeout:25];(${clauses});out tags center 150;`);
+    const anchors=(d.elements||[]).map(e=>{
+      const c=e.center||(e.lat!=null?{lat:e.lat,lon:e.lon}:null);
+      return (c&&e.tags&&e.tags.name)?{name:e.tags.name,lat:c.lat,lng:c.lon,tags:e.tags}:null;
+    }).filter(Boolean);
+    blanks.forEach(s=>{
+      let best=null,bd=1e9;
+      anchors.forEach(a=>{
+        const dd=haversineKm(s.lat,s.lng,a.lat,a.lng);
+        if(dd<bd){ bd=dd; best=a; }
+      });
+      if(best && bd<0.6){
+        const n=best.name;
+        s.name = /ramp|launch|landing|marina|pier|dock/i.test(n)
+          ? n
+          : n + (s.kind==='ramp'?' boat ramp':s.kind==='marina'?' marina':'');
+        s.derived=true;
+      }
+    });
+  }catch(e){ console.warn('name enrichment failed:',e.message); }
 }
 
 /* Opening-hours reader for the common formats. OSM allows far more
@@ -1554,6 +1606,9 @@ async function toggleShops(){
   }
   btn.classList.add('on');
   btn.innerHTML='⏳<span class="lw"> Finding…</span>';
+  openModal(`<div class="mtitle">Searching…</div>
+    <div class="msub"><span class="spin"></span> Looking for bait shops, marinas and ramps around the middle of your map.
+    This queries OpenStreetMap and can take a few seconds.</div>`);
   const c=map.getCenter();
   try{
     SHOPS=await fetchShops(c.lat,c.lng,25000);
@@ -1586,7 +1641,8 @@ function showShopList(){
       Try panning to a town or the coast.</div>
       <button class="btn" onclick="closeModal()">OK</button>`);
   }
-  const rows=SHOPS.slice(0,25).map((s,i)=>{
+  const shops=SHOPS.filter(s=>s.kind==='shop').length;
+  const rows=SHOPS.slice(0,30).map((s,i)=>{
     const h=readHours(s.tags&&s.tags.opening_hours);
     const badge = h.state==='open'?'<span class="ob open">Open</span>'
                 : h.state==='closed'?'<span class="ob shut">Closed</span>'
@@ -1594,13 +1650,14 @@ function showShopList(){
     return `<button class="slrow" onclick="openShop(${i})">
       <div class="slic">${s.icon}</div>
       <div style="flex:1;min-width:0;text-align:left">
-        <div class="slname">${esc(s.name)}</div>
+        <div class="slname">${esc(s.name)}${s.derived?' <span class="chip">name inferred</span>':''}</div>
         <div class="slsub">${esc(s.label)} · ${s.dist.toFixed(1)} km ${badge}</div>
       </div><div class="arrow">›</div></button>`;
   }).join('');
   openModal(`
     <div class="mtitle">Nearby</div>
-    <div class="msub">${SHOPS.length} place${SHOPS.length===1?'':'s'} found. They are pinned on the map too — orange is bait and tackle, blue is a marina, green is a boat ramp.</div>
+    <div class="msub">${SHOPS.length} place${SHOPS.length===1?'':'s'} found · orange is bait and tackle, blue a marina, green a boat ramp.
+      ${shops?'':'<b>No tackle shops are mapped in this area</b> — rural Florida is thinly covered in OpenStreetMap, so ramps and marinas may be all there is here. Pan to a town and search again.'}</div>
     ${rows}
     <button class="btn" onclick="closeModal()">Close</button>
   `);
@@ -1637,7 +1694,8 @@ function openShop(i){
 
   openModal(`
     <div class="mtitle">${s.icon} ${esc(s.name)}</div>
-    <div class="msub">${esc(s.label)} · ${s.dist.toFixed(1)} km away ${badge}</div>
+    <div class="msub">${esc(s.label)} · ${s.dist.toFixed(1)} km away ${badge}
+      ${s.derived?'<br><span class="chip">name inferred</span> OpenStreetMap has no name on this ramp itself — this is the named park or lot around it.':''}</div>
 
     <div class="shopblk">
       <div class="sblbl">Hours</div>
