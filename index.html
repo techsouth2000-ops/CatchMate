@@ -207,7 +207,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v13 google-shops</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v14 in-app-shops</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -1736,18 +1736,18 @@ async function toggleShops(){
 
 function showShopList(){
   const gOn=!!gKey();
-  const gmaps=`<a class="btn" style="text-align:center;text-decoration:none;display:block"
-      href="${googleMapsSearch()}" target="_blank" rel="noopener">🔎 Search bait shops on Google Maps</a>`;
+  const gmaps=`<a class="linky" style="display:block;text-align:center"
+      href="${googleMapsSearch()}" target="_blank" rel="noopener">Or open Google Maps in a new tab</a>`;
 
   if(!SHOPS.length){
     return openModal(`<div class="mtitle">Nothing found here</div>
       <div class="msub">${gOn
         ? 'Google returned no bait shops near the middle of your map.'
-        : 'Bitecast is searching OpenStreetMap, which is volunteer-mapped and misses most small bait shops in rural Florida. Shops that exist may simply not be recorded there.'}</div>
+        : 'Bitecast is searching OpenStreetMap, which is volunteer-mapped and misses most small bait shops in rural Florida. Real shops nearby may simply not be recorded there.'}</div>
       ${GERR?`<div class="msg bad">Google Places error: ${esc(GERR)}</div>`:''}
-      ${gmaps}
-      ${gOn?'':`<button class="btn alt" onclick="openMapsKeySetup()">Use Google listings instead →</button>`}
-      <button class="btn alt" onclick="closeModal()">Close</button>`);
+      ${gOn?'':`<button class="btn" onclick="openMapsKeySetup()">Show real listings in Bitecast →</button>`}
+      <button class="btn alt" onclick="closeModal()">Close</button>
+      ${gmaps}`);
   }
 
   const shops=SHOPS.filter(s=>s.kind==='shop').length;
@@ -1780,10 +1780,10 @@ function showShopList(){
       ${!shops&&!gOn?'<br><b>No tackle shops in OpenStreetMap here.</b> Rural Florida is thinly mapped — add a Google key below to get real listings.':''}</div>
     ${GERR?`<div class="msg bad">Google Places error: ${esc(GERR)}</div>`:''}
     ${rows}
-    ${gmaps}
     ${gOn?`<button class="linky" onclick="openMapsKeySetup()">Manage Google key</button>`
-        :`<button class="btn alt" onclick="openMapsKeySetup()">Use Google listings →</button>`}
+        :`<button class="btn" onclick="openMapsKeySetup()">Show real listings in Bitecast →</button>`}
     <button class="btn alt" onclick="closeModal()">Close</button>
+    ${gmaps}
   `);
 }
 
