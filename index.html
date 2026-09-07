@@ -155,16 +155,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .spin{display:inline-block;width:11px;height:11px;border:2px solid #cfe2f4;border-top-color:var(--pri);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px;margin-right:6px}
 @keyframes sp{to{transform:rotate(360deg)}}
 .grab{display:none}
+.side.small .head,.side.small .body{display:none}
+@media(min-width:821px){
+  .side{transition:width .25s ease}
+  .side.small{width:0;min-width:0;overflow:hidden;box-shadow:none}
+  .grab{display:none!important}
+}
 @media(max-width:820px){
   .wrap{flex-direction:column-reverse}
   .side{width:100%;height:52%;transition:height .25s ease;border-radius:14px 14px 0 0;
         box-shadow:0 -3px 16px rgba(0,0,0,.16)}
   .side.big{height:93%}
+  .side.small{height:46px;border-radius:14px 14px 0 0}
   .mapwrap{height:48%;transition:height .25s ease}
   .side.big ~ .mapwrap{height:7%}
+  .side.small ~ .mapwrap{height:calc(100% - 46px)}
   .grab{display:block;width:100%;padding:9px 0 4px;border:0;background:none;cursor:pointer;flex-shrink:0}
   .grab span{display:block;width:40px;height:4px;border-radius:3px;background:#cfd8e0;margin:0 auto}
   .side.big .grab span{background:var(--pri)}
+  .side.small .grab span{background:var(--acc);width:56px}
   .ctl{top:8px;right:8px;gap:5px}
   .cbtn{padding:9px 10px;font-size:15px;line-height:1;min-width:40px}
   .lw{display:none}
@@ -207,7 +216,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v14 in-app-shops</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v15 full-map</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -226,6 +235,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <button class="cbtn on" id="b-map" onclick="setBase('map')">🗺️<span class="lw"> Map</span></button>
       <button class="cbtn" id="b-sat" onclick="setBase('sat')">🛰️<span class="lw"> Satellite</span></button>
       <button class="cbtn loc" id="b-loc" onclick="locateMe()">📍<span class="lw"> Locate me</span></button>
+      <button class="cbtn" id="b-full" onclick="toggleFullMap()">⤢<span class="lw"> Full map</span></button>
       <button class="cbtn" id="b-shop" onclick="toggleShops()">🪱<span class="lw"> Shops</span></button>
       <button class="cbtn" id="b-diag" onclick="runDiagnostics()">🩺<span class="lw"> Test</span></button>
     </div>
@@ -1998,11 +2008,26 @@ function render(){
   out().innerHTML=h;
 }
 
-function toggleSheetSize(){
+function sheetSize(mode){
   const s=document.getElementById('side');
-  s.classList.toggle('big');
-  // Leaflet needs to be told the map box changed size
+  s.classList.remove('big','small');
+  if(mode==='big') s.classList.add('big');
+  if(mode==='small') s.classList.add('small');
+  const b=document.getElementById('b-full');
+  if(b) b.innerHTML = mode==='small' ? '⤡<span class="lw"> Exit full</span>' : '⤢<span class="lw"> Full map</span>';
   setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 280);
+}
+function currentSheet(){
+  const s=document.getElementById('side');
+  return s.classList.contains('big')?'big':s.classList.contains('small')?'small':'mid';
+}
+/* The handle cycles: half screen → full panel → map only → half screen */
+function toggleSheetSize(){
+  const now=currentSheet();
+  sheetSize(now==='mid'?'big':now==='big'?'small':'mid');
+}
+function toggleFullMap(){
+  sheetSize(currentSheet()==='small'?'mid':'small');
 }
 
 function setTab(t){
@@ -2019,6 +2044,8 @@ function tog(el){
 let seq=0;
 async function lookup(lat,lng,radiusOverride){
   const my=++seq;
+  // if the map is full screen, bring the panel back so results are visible
+  try{ if(currentSheet()==='small') sheetSize('mid'); }catch(e){}
   const radius = radiusOverride || (map.getZoom()>=12 ? 8 : (map.getZoom()>=10 ? 15 : 25));
 
   if(marker) map.removeLayer(marker);
