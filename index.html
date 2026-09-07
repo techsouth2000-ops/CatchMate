@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bitecast — Florida Fishing Intel</title>
+<meta name="theme-color" content="#0b2b45">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"%3E %3Cdefs%3E %3ClinearGradient id="bcSky" x1="0" y1="0" x2="0" y2="1"%3E %3Cstop offset="0" stop-color="#22608f"/%3E%3Cstop offset="1" stop-color="#0a2438"/%3E %3C/linearGradient%3E %3ClinearGradient id="bcBody" x1="0" y1="0" x2="0" y2="1"%3E %3Cstop offset="0" stop-color="#67e0b0"/%3E%3Cstop offset="1" stop-color="#0d9b66"/%3E %3C/linearGradient%3E %3CclipPath id="bcClip"%3E%3Ccircle cx="32" cy="32" r="31"/%3E%3C/clipPath%3E %3C/defs%3E %3Cg clip-path="url(#bcClip)"%3E %3Ccircle cx="32" cy="32" r="31" fill="url(#bcSky)"/%3E %3Cg transform="translate(-30 -1)"%3E%3Cpath d="M49.6 9.6a8.4 8.4 0 1 0 0 15.2 6.6 6.6 0 1 1 0-15.2z" fill="#ffe6a3"/%3E%3C/g%3E %3Cpath d="M-4 51c6-3.5 11-3.5 17 0s11 3.5 17 0 11-3.5 17 0 11 3.5 17 0" stroke="#3fa8e0" stroke-width="2.4" fill="none" opacity=".45" stroke-linecap="round"/%3E %3Cpath d="M-4 57c6-3.5 11-3.5 17 0s11 3.5 17 0 11-3.5 17 0 11 3.5 17 0" stroke="#3fa8e0" stroke-width="2" fill="none" opacity=".3" stroke-linecap="round"/%3E %3Cg transform="rotate(-18 32 33)"%3E %3Cpath d="M14 33 4 24c-1.4 6-1.4 12 0 18l10-9z" fill="#0d9b66"/%3E %3Cpath d="M28 20c.5-6 5-9.5 9.5-8.5L34 20z" fill="#12b077"/%3E %3Cpath d="M26 45c-1.5 4 .5 7 3.5 8l2.5-7z" fill="#12b077"/%3E %3Cpath d="M14 33c0-7.5 8.5-13.5 18-13.5S49.5 25 51.5 33c-2 8-9 13.5-19.5 13.5S14 40.5 14 33z" fill="url(#bcBody)"/%3E %3Cpath d="M20 39c6 5 16 6 26 3-3 3-8 4.5-14 4.5-5 0-9-2.5-12-7.5z" fill="#0b8b5b" opacity=".55"/%3E %3Cpath d="M23 23c3.5 6 3.5 14 0 20" stroke="#0a6b48" stroke-width="1.8" fill="none" opacity=".45" stroke-linecap="round"/%3E %3Ccircle cx="43" cy="29" r="4.6" fill="#fff"/%3E %3Ccircle cx="44.3" cy="29" r="2.2" fill="#0a2438"/%3E %3Ccircle cx="45.3" cy="27.9" r=".8" fill="#fff"/%3E %3C/g%3E %3C/g%3E %3Ccircle cx="32" cy="32" r="30.5" fill="none" stroke="#0a2438" stroke-width="1.6" opacity=".35"/%3E %3C/svg%3E">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -17,7 +19,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .mapwrap{flex:1;position:relative}
 #map{width:100%;height:100%}
 .head{padding:14px 16px;border-bottom:1px solid var(--bd)}
-.logo{font-size:20px;font-weight:700;color:var(--pri)}
+.logo{font-size:20px;font-weight:700;color:var(--pri);display:flex;align-items:center;gap:8px}
+.mark{width:30px;height:30px;flex-shrink:0}
+.shopblk{border-top:1px solid var(--bd);padding:11px 0}
+.sblbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin-bottom:4px}
+.sbval{font-size:13px;line-height:1.5}
+.ob{display:inline-block;font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;margin-left:4px}
+.ob.open{background:#e4f7ee;color:#0a6b48}
+.ob.shut{background:#fdeceb;color:#b0342c}
+.ob.unk{background:#f0f2f5;color:var(--mut)}
 .tag{font-size:11px;color:var(--mut);margin-top:2px}
 .body{flex:1;overflow-y:auto;padding:14px 16px 40px}
 .empty{text-align:center;padding:50px 16px;color:var(--mut)}
@@ -167,8 +177,43 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="head">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div>
-          <div class="logo">🎣 Bitecast</div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v9 layout+2day</span></div>
+          <div class="logo">
+            <svg class="mark" viewBox="0 0 64 64" role="img" aria-label="Bitecast">
+              <defs>
+                <linearGradient id="bcSky" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#22608f"/><stop offset="1" stop-color="#0a2438"/>
+                </linearGradient>
+                <linearGradient id="bcBody" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#67e0b0"/><stop offset="1" stop-color="#0d9b66"/>
+                </linearGradient>
+                <clipPath id="bcClip"><circle cx="32" cy="32" r="31"/></clipPath>
+              </defs>
+              <g clip-path="url(#bcClip)">
+                <circle cx="32" cy="32" r="31" fill="url(#bcSky)"/>
+                <g transform="translate(-30 -1)"><path d="M49.6 9.6a8.4 8.4 0 1 0 0 15.2 6.6 6.6 0 1 1 0-15.2z" fill="#ffe6a3"/></g>
+                <path d="M-4 51c6-3.5 11-3.5 17 0s11 3.5 17 0 11-3.5 17 0 11 3.5 17 0"
+                      stroke="#3fa8e0" stroke-width="2.4" fill="none" opacity=".45" stroke-linecap="round"/>
+                <path d="M-4 57c6-3.5 11-3.5 17 0s11 3.5 17 0 11-3.5 17 0 11 3.5 17 0"
+                      stroke="#3fa8e0" stroke-width="2" fill="none" opacity=".3" stroke-linecap="round"/>
+                <g transform="rotate(-18 32 33)">
+                  <path d="M14 33 4 24c-1.4 6-1.4 12 0 18l10-9z" fill="#0d9b66"/>
+                  <path d="M28 20c.5-6 5-9.5 9.5-8.5L34 20z" fill="#12b077"/>
+                  <path d="M26 45c-1.5 4 .5 7 3.5 8l2.5-7z" fill="#12b077"/>
+                  <path d="M14 33c0-7.5 8.5-13.5 18-13.5S49.5 25 51.5 33c-2 8-9 13.5-19.5 13.5S14 40.5 14 33z"
+                        fill="url(#bcBody)"/>
+                  <path d="M20 39c6 5 16 6 26 3-3 3-8 4.5-14 4.5-5 0-9-2.5-12-7.5z" fill="#0b8b5b" opacity=".55"/>
+                  <path d="M23 23c3.5 6 3.5 14 0 20" stroke="#0a6b48" stroke-width="1.8"
+                        fill="none" opacity=".45" stroke-linecap="round"/>
+                  <circle cx="43" cy="29" r="4.6" fill="#fff"/>
+                  <circle cx="44.3" cy="29" r="2.2" fill="#0a2438"/>
+                  <circle cx="45.3" cy="27.9" r=".8" fill="#fff"/>
+                </g>
+              </g>
+              <circle cx="32" cy="32" r="30.5" fill="none" stroke="#0a2438" stroke-width="1.6" opacity=".35"/>
+            </svg>
+            <span>Bitecast</span>
+          </div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v10 shops+mascot</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -187,6 +232,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <button class="cbtn on" id="b-map" onclick="setBase('map')">🗺️<span class="lw"> Map</span></button>
       <button class="cbtn" id="b-sat" onclick="setBase('sat')">🛰️<span class="lw"> Satellite</span></button>
       <button class="cbtn loc" id="b-loc" onclick="locateMe()">📍<span class="lw"> Locate me</span></button>
+      <button class="cbtn" id="b-shop" onclick="toggleShops()">🪱<span class="lw"> Shops</span></button>
       <button class="cbtn" id="b-diag" onclick="runDiagnostics()">🩺<span class="lw"> Test</span></button>
     </div>
     <button class="fab" id="fab" onclick="openLogCatch()">＋ Log a catch</button>
@@ -1418,6 +1464,186 @@ function feedHTML(){
     </div>`;
   });
   return h;
+}
+
+/* ============ BAIT SHOPS, MARINAS & RAMPS (OpenStreetMap) ============ */
+let shopLayer=null, SHOPS=[], shopsOn=false;
+
+async function fetchShops(lat,lng,radiusM){
+  const r=radiusM||20000;
+  const q=`[out:json][timeout:25];(`+
+    `nwr(around:${r},${lat},${lng})["shop"="fishing"];`+
+    `nwr(around:${r},${lat},${lng})["shop"="bait"];`+
+    `nwr(around:${r},${lat},${lng})["shop"="outdoor"]["fishing"="yes"];`+
+    `nwr(around:${r},${lat},${lng})["shop"="sports"]["sport"="fishing"];`+
+    `nwr(around:${r},${lat},${lng})["leisure"="marina"];`+
+    `nwr(around:${r},${lat},${lng})["leisure"="slipway"];`+
+    `);out center tags 80;`;
+  const d=await overpass(q);
+  return (d.elements||[]).map(e=>{
+    const t=e.tags||{};
+    const c=e.center||(e.lat!=null?{lat:e.lat,lon:e.lon}:null);
+    if(!c) return null;
+    let kind='shop', icon='🪱', label='Bait & tackle';
+    if(t.leisure==='marina'){ kind='marina'; icon='⚓'; label='Marina'; }
+    else if(t.leisure==='slipway'){ kind='ramp'; icon='🛥️'; label='Boat ramp'; }
+    return {
+      id:(e.type||'n')+e.id, kind, icon, label,
+      name:t.name||(kind==='ramp'?'Boat ramp':kind==='marina'?'Marina':'Bait & tackle'),
+      lat:c.lat, lng:c.lon, tags:t,
+      dist:haversineKm(lat,lng,c.lat,c.lon)
+    };
+  }).filter(Boolean).sort((a,b)=>a.dist-b.dist);
+}
+
+/* Opening-hours reader for the common formats. OSM allows far more
+   complexity than this; anything it cannot parse is reported as unknown
+   rather than guessed at, because a wrong "Open now" sends someone
+   driving to a locked door. */
+const DAYS=['Su','Mo','Tu','We','Th','Fr','Sa'];
+function readHours(spec){
+  if(!spec) return {state:'unknown', today:null};
+  const s=spec.trim();
+  if(/^24\/7$/i.test(s)) return {state:'open', today:'Open 24 hours'};
+  if(/PH|easter|sunrise|sunset|week|\bJan\b|\bFeb\b|\bMar\b|\bApr\b|\bMay\b|\bJun\b|\bJul\b|\bAug\b|\bSep\b|\bOct\b|\bNov\b|\bDec\b/i.test(s))
+    return {state:'unknown', today:s};
+  const now=new Date(), di=now.getDay(), mins=now.getHours()*60+now.getMinutes();
+  let todayRanges=null;
+  for(const rule of s.split(';')){
+    const r=rule.trim(); if(!r) continue;
+    const m=r.match(/^([A-Za-z,\-]+)?\s*(.*)$/); if(!m) continue;
+    const dayPart=(m[1]||'').trim(), timePart=(m[2]||'').trim();
+    let days=[];
+    if(!dayPart||/^\d/.test(r)){ days=[0,1,2,3,4,5,6]; }
+    else{
+      for(const tok of dayPart.split(',')){
+        const rg=tok.trim().match(/^([A-Za-z]{2})\s*-\s*([A-Za-z]{2})$/);
+        if(rg){
+          let a=DAYS.indexOf(rg[1]), b=DAYS.indexOf(rg[2]);
+          if(a<0||b<0) continue;
+          for(let i=a;;i=(i+1)%7){ days.push(i); if(i===b) break; }
+        } else {
+          const i=DAYS.indexOf(tok.trim()); if(i>=0) days.push(i);
+        }
+      }
+    }
+    if(!days.includes(di)) continue;
+    const tp = timePart || dayPart;
+    if(/^off|closed$/i.test(tp.trim())){ todayRanges=[]; continue; }
+    const ranges=[...tp.matchAll(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/g)]
+      .map(x=>[ +x[1]*60 + +x[2], +x[3]*60 + +x[4] ]);
+    if(ranges.length) todayRanges=ranges;
+  }
+  if(todayRanges===null) return {state:'unknown', today:s};
+  if(!todayRanges.length) return {state:'closed', today:'Closed today'};
+  const open=todayRanges.some(([a,b]) => b<a ? (mins>=a||mins<b) : (mins>=a&&mins<b));
+  const fmt=n=>{const h=Math.floor(n/60)%24,m=n%60;const ap=h<12?'am':'pm';const hh=h%12===0?12:h%12;
+                return hh+(m?':'+String(m).padStart(2,'0'):'')+ap;};
+  return {state:open?'open':'closed',
+          today:todayRanges.map(([a,b])=>fmt(a)+'–'+fmt(b)).join(', ')};
+}
+
+function shopIcon(s){
+  const col = s.kind==='shop' ? '#e2622c' : s.kind==='marina' ? '#0b5fa5' : '#0a8f5f';
+  return L.divIcon({className:'', iconSize:[26,26], iconAnchor:[13,13],
+    html:`<div style="width:26px;height:26px;border-radius:50%;background:${col};border:2px solid #fff;
+            box-shadow:0 1px 5px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;
+            font-size:13px">${s.icon}</div>`});
+}
+
+async function toggleShops(){
+  const btn=document.getElementById('b-shop');
+  if(shopsOn){
+    if(shopLayer) map.removeLayer(shopLayer);
+    shopsOn=false; btn.classList.remove('on');
+    return;
+  }
+  btn.classList.add('on');
+  btn.innerHTML='⏳<span class="lw"> Finding…</span>';
+  const c=map.getCenter();
+  try{
+    SHOPS=await fetchShops(c.lat,c.lng,25000);
+    if(shopLayer) map.removeLayer(shopLayer);
+    shopLayer=L.layerGroup();
+    SHOPS.forEach((s,i)=>{
+      L.marker([s.lat,s.lng],{icon:shopIcon(s)})
+        .on('click',()=>openShop(i))
+        .addTo(shopLayer);
+    });
+    shopLayer.addTo(map);
+    shopsOn=true;
+    btn.innerHTML='🪱<span class="lw"> Shops</span>';
+    if(!SHOPS.length){
+      openModal(`<div class="mtitle">Nothing mapped nearby</div>
+        <div class="msub">No bait shops, marinas or ramps are recorded in OpenStreetMap within 25 km of the middle of your map.
+        Try panning to a town or the coast. Coverage depends on what volunteers have mapped, so rural spots are often blank even when a shop exists.</div>
+        <button class="btn" onclick="closeModal()">OK</button>`);
+    }
+  }catch(e){
+    btn.classList.remove('on');
+    btn.innerHTML='🪱<span class="lw"> Shops</span>';
+    openModal(`<div class="mtitle">Could not load shops</div>
+      <div class="msub">${esc(e.message||'network error')}</div>
+      <button class="btn" onclick="closeModal()">OK</button>`);
+  }
+}
+
+function openShop(i){
+  const s=SHOPS[i]; if(!s) return;
+  const t=s.tags||{};
+  const hrs=readHours(t.opening_hours);
+  const badge = hrs.state==='open' ? '<span class="ob open">Open now</span>'
+              : hrs.state==='closed' ? '<span class="ob shut">Closed now</span>'
+              : '<span class="ob unk">Hours not confirmed</span>';
+
+  // Services, taken only from what is actually tagged
+  const svc=[];
+  if(t.shop==='fishing'||t.shop==='bait') svc.push('Bait &amp; tackle');
+  if(t.fishing==='yes') svc.push('Fishing gear');
+  if(t.leisure==='marina') svc.push('Marina berths');
+  if(t.leisure==='slipway') svc.push('Boat launch');
+  if(t.boat_rental==='yes'||t.rental) svc.push('Rentals');
+  if(t.fuel==='yes'||t.amenity==='fuel'||t['fuel:diesel']==='yes') svc.push('Fuel');
+  if(t.ice==='yes') svc.push('Ice');
+  if(t.toilets==='yes'||t.amenity==='toilets') svc.push('Restrooms');
+  if(t.parking||t.amenity==='parking') svc.push('Parking');
+  if(t.drinking_water==='yes') svc.push('Water');
+  if(t.repair==='yes'||t.service==='repair') svc.push('Repairs');
+  if(t.charter==='yes') svc.push('Charters');
+  if(t.payment_cards==='yes'||t['payment:credit_cards']==='yes') svc.push('Cards accepted');
+
+  const addr=[t['addr:housenumber'],t['addr:street'],t['addr:city'],t['addr:state']]
+    .filter(Boolean).join(' ');
+  const phone=t.phone||t['contact:phone'];
+  const web=t.website||t['contact:website'];
+
+  openModal(`
+    <div class="mtitle">${s.icon} ${esc(s.name)}</div>
+    <div class="msub">${esc(s.label)} · ${s.dist.toFixed(1)} km away ${badge}</div>
+
+    <div class="shopblk">
+      <div class="sblbl">Hours</div>
+      <div class="sbval">${hrs.today?esc(hrs.today):'Not recorded in OpenStreetMap'}</div>
+      ${t.opening_hours&&hrs.state==='unknown'
+        ? `<div class="hint2">Raw value: ${esc(t.opening_hours)} — too complex to read reliably, so call ahead.</div>`
+        : ''}
+    </div>
+
+    ${svc.length?`<div class="shopblk"><div class="sblbl">Services</div>
+      <div>${svc.map(x=>`<span class="chip">${x}</span>`).join('')}</div>
+      <div class="hint2">Only what is tagged in OpenStreetMap. A shop may well offer more.</div></div>`:''}
+
+    ${addr?`<div class="shopblk"><div class="sblbl">Address</div><div class="sbval">${esc(addr)}</div></div>`:''}
+
+    <div class="row2" style="margin-top:6px">
+      ${phone?`<a class="btn alt" style="text-align:center;text-decoration:none;display:block" href="tel:${esc(phone.replace(/[^\d+]/g,''))}">📞 Call</a>`:''}
+      <a class="btn alt" style="text-align:center;text-decoration:none;display:block"
+         href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}" target="_blank" rel="noopener">🧭 Directions</a>
+    </div>
+    ${web?`<a class="btn alt" style="text-align:center;text-decoration:none;display:block;margin-top:8px" href="${esc(web)}" target="_blank" rel="noopener">Website</a>`:''}
+    <button class="btn" onclick="closeModal()">Close</button>
+    <div class="hint2" style="margin-top:10px">Shop data from OpenStreetMap contributors. Hours change — ring before a long drive.</div>
+  `);
 }
 
 /* ============ RENDER ============ */
