@@ -207,7 +207,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v12 shop-names</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v13 google-shops</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -502,8 +502,14 @@ async function overpass(q){
   const tries=OVERPASS.map(u=>getJSON(url(u),25000));
   tries.forEach(p=>p.catch(()=>{}));   // losers must not raise unhandled rejections
   if(typeof Promise.any==='function'){
-    try{ return await Promise.any(tries); }
-    catch(e){ throw new Error('all Overpass mirrors failed or timed out'); }
+    try{
+      const d=await Promise.any(tries);
+      // Overpass sometimes answers 200 with an error note instead of failing
+      if(d && d.remark && /error|timed out|runtime/i.test(d.remark))
+        throw new Error('Overpass: '+d.remark);
+      return d;
+    }
+    catch(e){ throw new Error(e.message&&e.message.startsWith('Overpass:')?e.message:'all Overpass mirrors failed or timed out'); }
   }
   let lastErr;
   for(const p of tries){ try{ return await p; }catch(e){ lastErr=e; } }
@@ -1467,7 +1473,87 @@ function feedHTML(){
 }
 
 /* ============ BAIT SHOPS, MARINAS & RAMPS (OpenStreetMap) ============ */
-let shopLayer=null, SHOPS=[], shopsOn=false;
+let shopLayer=null, SHOPS=[], shopsOn=false, GERR=null;
+
+/* Google Places gives far better small-business coverage than OSM, which is
+   volunteer-mapped and thin in rural Florida. Optional: needs the user's own
+   API key. Without it we fall back to OSM plus a Google Maps deep link. */
+function gKey(){ return localStorage.getItem('bc_gkey')||''; }
+
+async function fetchPlacesGoogle(lat,lng,radiusM){
+  const key=gKey(); if(!key) return null;
+  const queries=['bait and tackle shop','fishing tackle store'];
+  const seen={}, out=[];
+  for(const q of queries){
+    const res=await fetch('https://places.googleapis.com/v1/places:searchText',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Goog-Api-Key':key,
+        'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.location,'+
+          'places.regularOpeningHours,places.currentOpeningHours,places.nationalPhoneNumber,'+
+          'places.websiteUri,places.rating,places.userRatingCount,places.businessStatus'},
+      body:JSON.stringify({textQuery:q,maxResultCount:20,
+        locationBias:{circle:{center:{latitude:lat,longitude:lng},radius:Math.min(radiusM,50000)}}})
+    });
+    if(!res.ok){
+      const t=await res.text().catch(()=>'');
+      throw new Error('Google Places '+res.status+(t?': '+t.slice(0,140):''));
+    }
+    const d=await res.json();
+    (d.places||[]).forEach(p=>{
+      if(!p.location||seen[p.id]) return;
+      seen[p.id]=1;
+      const oh=p.currentOpeningHours||p.regularOpeningHours||null;
+      out.push({
+        id:'g'+p.id, kind:'shop', icon:'🪱', label:'Bait & tackle', src:'google',
+        name:(p.displayName&&p.displayName.text)||'Bait & tackle', named:true,
+        lat:p.location.latitude, lng:p.location.longitude,
+        dist:haversineKm(lat,lng,p.location.latitude,p.location.longitude),
+        gOpenNow: oh&&typeof oh.openNow==='boolean' ? oh.openNow : null,
+        gHours: oh&&oh.weekdayDescriptions ? oh.weekdayDescriptions : null,
+        rating:p.rating||null, ratings:p.userRatingCount||0,
+        closed: p.businessStatus && p.businessStatus!=='OPERATIONAL',
+        tags:{ 'addr:full':p.formattedAddress||'', phone:p.nationalPhoneNumber||'',
+               website:p.websiteUri||'', shop:'fishing' }
+      });
+    });
+  }
+  return out.filter(s=>!s.closed);
+}
+
+/* Deep link into Google Maps — always available, needs no key at all. */
+function googleMapsSearch(){
+  const c=map.getCenter();
+  return `https://www.google.com/maps/search/bait+and+tackle/@${c.lat.toFixed(5)},${c.lng.toFixed(5)},12z`;
+}
+
+function openMapsKeySetup(){
+  openModal(`
+    <div class="mtitle">Use Google for shops</div>
+    <div class="msub">OpenStreetMap is volunteer-mapped and misses most small bait shops in rural Florida.
+      A Google Places key pulls in real listings with hours, phone numbers and ratings.</div>
+    <div id="formmsg"></div>
+    <div class="fld">
+      <label>Google Places API key</label>
+      <textarea id="gk" placeholder="AIza..."></textarea>
+      <div class="hint2">
+        console.cloud.google.com → enable <b>Places API (New)</b> → Credentials → Create API key.<br><br>
+        <b>Restrict it before using it:</b> add an HTTP referrer restriction for
+        techsouth2000-ops.github.io/* and limit it to the Places API. An unrestricted key can be
+        lifted off your page and run up your bill.<br><br>
+        Google includes a monthly free allowance; heavy use beyond it is billed.
+      </div>
+    </div>
+    <button class="btn" onclick="saveMapsKey()">Save key</button>
+    <button class="btn danger" onclick="localStorage.removeItem('bc_gkey');closeModal()">Remove saved key</button>
+  `);
+}
+function saveMapsKey(){
+  const v=(document.getElementById('gk').value||'').trim();
+  if(v.length<20) return setMsg('That does not look like a Google API key.');
+  localStorage.setItem('bc_gkey',v);
+  closeModal();
+  shopsOn=false; toggleShops();
+}
 
 async function fetchShops(lat,lng,radiusM){
   const r=radiusM||25000;
@@ -1607,12 +1693,27 @@ async function toggleShops(){
   btn.classList.add('on');
   btn.innerHTML='⏳<span class="lw"> Finding…</span>';
   openModal(`<div class="mtitle">Searching…</div>
-    <div class="msub"><span class="spin"></span> Looking for bait shops, marinas and ramps around the middle of your map.
-    This queries OpenStreetMap and can take a few seconds.</div>`);
+    <div class="msub"><span class="spin"></span> Looking for bait shops, marinas and ramps near the middle of your map.</div>`);
   const c=map.getCenter();
+  GERR=null;
   try{
+    let google=null;
+    try{ google=await fetchPlacesGoogle(c.lat,c.lng,50000); }
+    catch(e){ GERR=e.message; console.warn('google places failed:',e.message); }
+
     SHOPS=await fetchShops(c.lat,c.lng,25000);
-    if(!SHOPS.length) SHOPS=await fetchShops(c.lat,c.lng,60000);  // widen before giving up
+    if(!SHOPS.length && !(google&&google.length)) SHOPS=await fetchShops(c.lat,c.lng,60000);
+
+    if(google&&google.length){
+      // Google for the shops, OSM for ramps and marinas it does not cover well
+      const osmOther=SHOPS.filter(s=>s.kind!=='shop');
+      const merged=[...google,...osmOther];
+      // drop OSM shops that duplicate a Google result within 150 m
+      SHOPS.filter(s=>s.kind==='shop').forEach(o=>{
+        if(!google.some(g=>haversineKm(g.lat,g.lng,o.lat,o.lng)<0.15)) merged.push(o);
+      });
+      SHOPS=merged.sort((a,b)=>a.dist-b.dist);
+    }
     if(shopLayer) map.removeLayer(shopLayer);
     shopLayer=L.layerGroup();
     SHOPS.forEach((s,i)=>{
@@ -1634,44 +1735,71 @@ async function toggleShops(){
 }
 
 function showShopList(){
+  const gOn=!!gKey();
+  const gmaps=`<a class="btn" style="text-align:center;text-decoration:none;display:block"
+      href="${googleMapsSearch()}" target="_blank" rel="noopener">🔎 Search bait shops on Google Maps</a>`;
+
   if(!SHOPS.length){
-    return openModal(`<div class="mtitle">Nothing mapped nearby</div>
-      <div class="msub">No bait shops, marinas or ramps are recorded in OpenStreetMap within 60 km of the middle of your map.
-      Coverage depends on what volunteers have mapped, so rural areas are often blank even where a shop exists.
-      Try panning to a town or the coast.</div>
-      <button class="btn" onclick="closeModal()">OK</button>`);
+    return openModal(`<div class="mtitle">Nothing found here</div>
+      <div class="msub">${gOn
+        ? 'Google returned no bait shops near the middle of your map.'
+        : 'Bitecast is searching OpenStreetMap, which is volunteer-mapped and misses most small bait shops in rural Florida. Shops that exist may simply not be recorded there.'}</div>
+      ${GERR?`<div class="msg bad">Google Places error: ${esc(GERR)}</div>`:''}
+      ${gmaps}
+      ${gOn?'':`<button class="btn alt" onclick="openMapsKeySetup()">Use Google listings instead →</button>`}
+      <button class="btn alt" onclick="closeModal()">Close</button>`);
   }
+
   const shops=SHOPS.filter(s=>s.kind==='shop').length;
+  const fromG=SHOPS.filter(s=>s.src==='google').length;
   const rows=SHOPS.slice(0,30).map((s,i)=>{
-    const h=readHours(s.tags&&s.tags.opening_hours);
-    const badge = h.state==='open'?'<span class="ob open">Open</span>'
-                : h.state==='closed'?'<span class="ob shut">Closed</span>'
-                : '<span class="ob unk">Hours ?</span>';
+    let badge;
+    if(s.src==='google'){
+      badge = s.gOpenNow===true?'<span class="ob open">Open</span>'
+            : s.gOpenNow===false?'<span class="ob shut">Closed</span>'
+            : '<span class="ob unk">Hours ?</span>';
+    } else {
+      const h=readHours(s.tags&&s.tags.opening_hours);
+      badge = h.state==='open'?'<span class="ob open">Open</span>'
+            : h.state==='closed'?'<span class="ob shut">Closed</span>'
+            : '<span class="ob unk">Hours ?</span>';
+    }
+    const stars=s.rating?` · ★ ${s.rating.toFixed(1)}${s.ratings?' ('+s.ratings+')':''}`:'';
     return `<button class="slrow" onclick="openShop(${i})">
       <div class="slic">${s.icon}</div>
       <div style="flex:1;min-width:0;text-align:left">
         <div class="slname">${esc(s.name)}${s.derived?' <span class="chip">name inferred</span>':''}</div>
-        <div class="slsub">${esc(s.label)} · ${s.dist.toFixed(1)} km ${badge}</div>
+        <div class="slsub">${esc(s.label)} · ${s.dist.toFixed(1)} km${stars} ${badge}</div>
       </div><div class="arrow">›</div></button>`;
   }).join('');
+
   openModal(`
     <div class="mtitle">Nearby</div>
-    <div class="msub">${SHOPS.length} place${SHOPS.length===1?'':'s'} found · orange is bait and tackle, blue a marina, green a boat ramp.
-      ${shops?'':'<b>No tackle shops are mapped in this area</b> — rural Florida is thinly covered in OpenStreetMap, so ramps and marinas may be all there is here. Pan to a town and search again.'}</div>
+    <div class="msub">${SHOPS.length} place${SHOPS.length===1?'':'s'} · orange bait and tackle, blue marina, green ramp.
+      ${fromG?`<br><span class="chip">${fromG} from Google</span>`:''}
+      ${!shops&&!gOn?'<br><b>No tackle shops in OpenStreetMap here.</b> Rural Florida is thinly mapped — add a Google key below to get real listings.':''}</div>
+    ${GERR?`<div class="msg bad">Google Places error: ${esc(GERR)}</div>`:''}
     ${rows}
-    <button class="btn" onclick="closeModal()">Close</button>
+    ${gmaps}
+    ${gOn?`<button class="linky" onclick="openMapsKeySetup()">Manage Google key</button>`
+        :`<button class="btn alt" onclick="openMapsKeySetup()">Use Google listings →</button>`}
+    <button class="btn alt" onclick="closeModal()">Close</button>
   `);
 }
 
 function openShop(i){
   const s=SHOPS[i]; if(!s) return;
   const t=s.tags||{};
-  const hrs=readHours(t.opening_hours);
-  const badge = hrs.state==='open' ? '<span class="ob open">Open now</span>'
-              : hrs.state==='closed' ? '<span class="ob shut">Closed now</span>'
-              : '<span class="ob unk">Hours not confirmed</span>';
+  const isG = s.src==='google';
+  const hrs = isG ? null : readHours(t.opening_hours);
+  const badge = isG
+    ? (s.gOpenNow===true?'<span class="ob open">Open now</span>'
+      : s.gOpenNow===false?'<span class="ob shut">Closed now</span>'
+      : '<span class="ob unk">Hours not listed</span>')
+    : (hrs.state==='open'?'<span class="ob open">Open now</span>'
+      : hrs.state==='closed'?'<span class="ob shut">Closed now</span>'
+      : '<span class="ob unk">Hours not confirmed</span>');
 
-  // Services, taken only from what is actually tagged
   const svc=[];
   if(t.shop==='fishing'||t.shop==='bait') svc.push('Bait &amp; tackle');
   if(t.fishing==='yes') svc.push('Fishing gear');
@@ -1687,27 +1815,33 @@ function openShop(i){
   if(t.charter==='yes') svc.push('Charters');
   if(t.payment_cards==='yes'||t['payment:credit_cards']==='yes') svc.push('Cards accepted');
 
-  const addr=[t['addr:housenumber'],t['addr:street'],t['addr:city'],t['addr:state']]
-    .filter(Boolean).join(' ');
+  const addr = t['addr:full'] ||
+    [t['addr:housenumber'],t['addr:street'],t['addr:city'],t['addr:state']].filter(Boolean).join(' ');
   const phone=t.phone||t['contact:phone'];
   const web=t.website||t['contact:website'];
+
+  const hoursBlock = isG
+    ? (s.gHours&&s.gHours.length
+        ? `<div class="sbval">${s.gHours.map(x=>esc(x)).join('<br>')}</div>`
+        : `<div class="sbval">Not listed on Google</div>`)
+    : `<div class="sbval">${hrs.today?esc(hrs.today):'Not recorded in OpenStreetMap'}</div>
+       ${t.opening_hours&&hrs.state==='unknown'
+         ? `<div class="hint2">Raw value: ${esc(t.opening_hours)} — too complex to read reliably, so call ahead.</div>`:''}`;
 
   openModal(`
     <div class="mtitle">${s.icon} ${esc(s.name)}</div>
     <div class="msub">${esc(s.label)} · ${s.dist.toFixed(1)} km away ${badge}
+      ${s.rating?`<br>★ ${s.rating.toFixed(1)} from ${s.ratings} Google review${s.ratings===1?'':'s'}`:''}
       ${s.derived?'<br><span class="chip">name inferred</span> OpenStreetMap has no name on this ramp itself — this is the named park or lot around it.':''}</div>
 
     <div class="shopblk">
       <div class="sblbl">Hours</div>
-      <div class="sbval">${hrs.today?esc(hrs.today):'Not recorded in OpenStreetMap'}</div>
-      ${t.opening_hours&&hrs.state==='unknown'
-        ? `<div class="hint2">Raw value: ${esc(t.opening_hours)} — too complex to read reliably, so call ahead.</div>`
-        : ''}
+      ${hoursBlock}
     </div>
 
     ${svc.length?`<div class="shopblk"><div class="sblbl">Services</div>
       <div>${svc.map(x=>`<span class="chip">${x}</span>`).join('')}</div>
-      <div class="hint2">Only what is tagged in OpenStreetMap. A shop may well offer more.</div></div>`:''}
+      <div class="hint2">Only what the source records. A shop may well offer more.</div></div>`:''}
 
     ${addr?`<div class="shopblk"><div class="sblbl">Address</div><div class="sbval">${esc(addr)}</div></div>`:''}
 
@@ -1718,7 +1852,7 @@ function openShop(i){
     </div>
     ${web?`<a class="btn alt" style="text-align:center;text-decoration:none;display:block;margin-top:8px" href="${esc(web)}" target="_blank" rel="noopener">Website</a>`:''}
     <button class="btn alt" onclick="showShopList()">‹ Back to list</button>
-    <div class="hint2" style="margin-top:10px">Shop data from OpenStreetMap contributors. Hours change — ring before a long drive.</div>
+    <div class="hint2" style="margin-top:10px">${isG?'Listing from Google Places.':'Data from OpenStreetMap contributors.'} Hours change — ring before a long drive.</div>
   `);
 }
 
