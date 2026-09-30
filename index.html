@@ -495,7 +495,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v21.1 spot-water</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v22.3 charts-live</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -631,22 +631,36 @@ function setBase(k){
    NOAA's official charts carry printed soundings and depth contour lines —
    the thing an angler actually reads. Several candidate endpoints, tried in
    order, because a silently-dead tile host is how the old depth layer failed. */
+/* NOAA retired the old Raster Navigational Chart tile service along with
+   its paper charts, so the original host is gone. The replacement is the
+   NOAA Chart Display Service — a cached Esri tile service.
+
+   The catch that cost several attempts: its cache numbers levels two lower
+   than standard web mercator. Level 0 is a 4x4 grid (standard zoom 2) and
+   level 16 is standard zoom 18 — a clean -2 across every LOD, confirmed
+   from the service's own resolution figures. The tile grid itself is
+   identical, so only the z in the URL shifts, which is exactly what
+   Leaflet's zoomOffset does. Ask for level 12 at zoom-12 coordinates and
+   every tile 404s, which is precisely how this looked broken.
+
+   maxNativeZoom stops the chart vanishing past the cache: Leaflet stretches
+   the last real tile instead, the way a plotter does. */
 const DEPTH_SOURCES=[
-  {n:'NOAA charts', u:'https://tileservice.charts.noaa.gov/tiles/50000_1/{z}/{x}/{y}.png',
-   a:'NOAA Office of Coast Survey', max:18,
-   note:'Official NOAA nautical chart. Printed numbers are soundings; contour lines join equal depths.'},
-  {n:'NOAA ENC',   u:'https://tileservice.charts.noaa.gov/tiles/encdisplay/{z}/{x}/{y}.png',
-   a:'NOAA ENC', max:18,
-   note:'NOAA electronic navigational chart display.'},
-  {n:'OpenSeaMap', u:'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
-   a:'OpenSeaMap', max:18,
-   note:'OpenSeaMap marine overlay — marks, buoys and charted hazards.'}
+  {n:'NOAA charts',
+   u:'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}',
+   a:'NOAA Office of Coast Survey', max:19, nat:18, zoff:-2, min:2,
+   note:'Official NOAA chart. Printed numbers are soundings; lines join equal depths.'},
+  {n:'OpenSeaMap',
+   u:'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
+   a:'OpenSeaMap', max:19, nat:18, zoff:0, min:2,
+   note:'Community marine overlay \u2014 marks, buoys and hazards, not full bathymetry.'}
 ];
 let depthIdx=0, depthLayer=null, depthOn=false, depthFails=0, depthLegend=null;
 
 function buildDepthLayer(){
   const s=DEPTH_SOURCES[depthIdx];
-  const l=L.tileLayer(s.u,{maxZoom:s.max,opacity:0.85,attribution:s.a});
+  const l=L.tileLayer(s.u,{maxZoom:s.max,maxNativeZoom:s.nat||s.max,minZoom:s.min||0,
+                          zoomOffset:s.zoff||0,opacity:0.85,attribution:s.a});
   depthFails=0;
   l.on('tileerror',()=>{
     // a handful of missing tiles is normal at the edge of chart coverage;
@@ -683,7 +697,10 @@ function toggleDepth(){
   depthLayer.addTo(map);
   depthOn=true; btn.classList.add('on');
   paintDepthLegend();
-  if(map.getZoom()<10) map.setZoom(11);   // contours are unreadable zoomed out
+  // Soundings only start rendering around map zoom 13; enabling the layer
+  // any further out shows coastline and place names but no depths, which
+  // reads as a broken layer.
+  if(map.getZoom()<13) map.setZoom(13);
 }
 
 /* Chart coverage varies by area, so let the angler pick the source rather
@@ -732,7 +749,7 @@ function paintDepthLegend(){
     d.innerHTML=`
       <div class="dlt">${esc(s.n)}
         <button class="dlsw" onclick="openDepthPicker()">change ›</button></div>
-      <div class="dlr"><b>12</b> a printed number is a sounding: charted depth at that exact spot</div>
+      <div class="dlr"><b>12</b> a printed number is a sounding: charted depth at that exact spot</div><div class="dlr">Zoom in if you see coastline but no numbers \u2014 soundings appear from about this zoom and closer.</div>
       <div class="dlr"><span class="dline"></span> a contour line joins points of equal depth — tight lines mean a steep drop-off</div>
       <div class="dlr"><span class="dsw sh"></span> lighter blue is shallower, <span class="dsw dp"></span> white or pale is deeper open water</div>
       <div class="dlnote">Soundings on NOAA charts are in <b>feet</b> for most Florida charts, but check the chart title — some are metres or fathoms. Depths are referenced to mean lower low water, so there is usually <i>more</i> water than shown.</div>
@@ -1164,13 +1181,12 @@ async function runDiagnostics(){
     ['RainViewer (radar)', probeJSON('https://api.rainviewer.com/public/weather-maps.json')],
     ['Esri dark basemap', probeImage('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/7/54/34')],
     ['Carto dark basemap', probeImage('https://a.basemaps.cartocdn.com/dark_all/7/34/54.png')],
-    ['NOAA charts (depth contours)', probeImage('https://tileservice.charts.noaa.gov/tiles/50000_1/12/1113/1732.png')],
-    ['NOAA ENC (depth contours)', probeImage('https://tileservice.charts.noaa.gov/tiles/encdisplay/12/1113/1732.png')],
+    ['NOAA charts', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/10/1732/1113')],
     ['OpenSeaMap (marine overlay)', probeImage('https://tiles.openseamap.org/seamark/12/1113/1732.png')]
   ];
   const results=await Promise.all(tests.map(t=>t[1]));
   const blocked=results.filter((r,i)=>i>=3&&i<=4&&!r).length;
-  const charts=results.slice(9);
+  const charts=results.slice(8);
   const chartsOk=charts.filter(Boolean).length;
   let h='<div class="loc">Connection test</div><div class="sub">What this browser is allowed to reach</div>';
   h+='<div style="margin-top:14px">';
