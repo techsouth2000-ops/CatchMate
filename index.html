@@ -24,177 +24,435 @@ window.BITECAST = {
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--pri:#0b5fa5;--sec:#0a8f5f;--acc:#e2622c;--dark:#16202b;--bg:#f4f6f8;--bd:#dce3ea;--mut:#6b7885}
+:root{
+  --bg:#081420; --s1:#0e1f2e; --s2:#16293a; --s3:#1d3447;
+  --line:#22394d; --line2:#2c4a61;
+  --ink:#eef4f8; --ink2:#9db2c4; --ink3:#6b8298;
+  --acc:#2fc49e; --acc2:#8ff0cd; --blue:#3987e5; --amber:#fab219; --red:#e66767;
+  --pri:#4aa3ff; --sec:#2fc49e; --dark:#eef4f8; --bd:#22394d; --mut:#9db2c4; --light:#0e1f2e;
+  --r:14px; --r2:10px;
+}
 html,body{height:100%}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--dark)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;
+  background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;
+  font-size:15px;line-height:1.5}
+button,input,select,textarea{font-family:inherit}
 .wrap{display:flex;height:100vh}
-.side{width:430px;background:#fff;display:flex;flex-direction:column;box-shadow:2px 0 14px rgba(0,0,0,.09);z-index:600}
-.mapwrap{flex:1;position:relative}
+.side{width:452px;background:var(--bg);display:flex;flex-direction:column;
+  box-shadow:1px 0 0 var(--line);z-index:600;position:relative}
+.mapwrap{flex:1;position:relative;background:var(--bg)}
 #map{width:100%;height:100%}
-.head{padding:14px 16px;border-bottom:1px solid var(--bd)}
-.logo{font-size:20px;font-weight:700;color:var(--pri);display:flex;align-items:center;gap:8px}
-.mark{width:30px;height:30px;flex-shrink:0}
-.slrow{display:flex;align-items:center;gap:11px;width:100%;padding:11px 4px;background:none;
-  border:0;border-bottom:1px solid var(--bd);cursor:pointer;font-family:inherit}
-.slic{width:34px;height:34px;border-radius:50%;background:#eef3f7;display:flex;align-items:center;
-  justify-content:center;font-size:16px;flex-shrink:0}
-.slname{font-size:14px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.slsub{font-size:11px;color:var(--mut);margin-top:2px}
-.shopblk{border-top:1px solid var(--bd);padding:11px 0}
-.sblbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin-bottom:4px}
-.sbval{font-size:13px;line-height:1.5}
-.ob{display:inline-block;font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;margin-left:4px}
-.ob.open{background:#e4f7ee;color:#0a6b48}
-.ob.shut{background:#fdeceb;color:#b0342c}
-.ob.unk{background:#f0f2f5;color:var(--mut)}
-.tag{font-size:11px;color:var(--mut);margin-top:2px}
-.body{flex:1;overflow-y:auto;padding:14px 16px 40px}
-.empty{text-align:center;padding:50px 16px;color:var(--mut)}
-.empty .ic{font-size:44px;margin-bottom:12px}
-.status{font-size:12px;color:var(--pri);background:#eef5fc;border-radius:6px;padding:8px 10px;margin-bottom:10px}
-.err{font-size:12px;color:#9a3412;background:#fff3ec;border:1px solid #ffd9c4;border-radius:6px;padding:8px 10px;margin-bottom:10px}
-.loc{font-size:20px;font-weight:700;line-height:1.2}
-.sub{font-size:11px;color:var(--mut);margin-top:4px}
-.pill{display:inline-block;font-size:10px;font-weight:700;color:#fff;padding:3px 8px;border-radius:20px;margin-top:8px;letter-spacing:.03em}
-.salt{background:var(--pri)}.fresh{background:var(--sec)}.brack{background:#7a5cbf}.unk{background:#8b95a1}
-.tabs{display:flex;gap:6px;margin:14px 0 10px}
-.tab{flex:1;padding:8px;font-size:12px;font-weight:600;border:1px solid var(--bd);background:#fff;color:var(--mut);border-radius:7px;cursor:pointer}
-.tab.on{background:var(--pri);color:#fff;border-color:var(--pri)}
-.hint{font-size:11px;color:var(--mut);margin-bottom:10px;line-height:1.5}
-.card{border:1px solid var(--bd);border-radius:10px;margin-bottom:9px;overflow:hidden;background:#fff}
-.chead{padding:11px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
-.rank{font-size:10px;font-weight:700;background:var(--sec);color:#fff;border-radius:4px;padding:2px 6px;margin-right:6px}
-.fname{font-weight:650;font-size:14px}
-.sci{font-size:10px;color:var(--mut);font-style:italic;margin-top:2px}
-.cnt{font-size:10px;color:var(--mut);margin-top:3px}
-.arrow{color:var(--pri);font-size:11px;flex-shrink:0}
-.det{display:none;padding:0 12px 12px;border-top:1px solid var(--bd)}
-.fphoto{width:52px;height:52px;object-fit:cover;border-radius:8px;flex-shrink:0;background:#e8edf1}
-.fphoto.ph{display:flex;align-items:center;justify-content:center;font-size:24px}
-.fbig{display:block;width:100%;height:auto;max-height:340px;object-fit:contain;border-radius:8px;margin-top:11px;background:#11202b}
+
+/* ---------- header ---------- */
+.head{padding:14px 18px 12px;border-bottom:1px solid var(--line);background:var(--s1)}
+.logo{font-size:19px;font-weight:700;letter-spacing:-.02em;color:var(--ink);
+  display:flex;align-items:center;gap:9px}
+.mark{width:30px;height:30px;flex-shrink:0;border-radius:9px}
+.tag{font-size:10.5px;color:var(--ink3);margin-top:3px;letter-spacing:.01em}
+.acct{flex-shrink:0;padding:7px 13px;font-size:11px;font-weight:650;border:1px solid var(--line2);
+  background:var(--s2);color:var(--ink2);border-radius:20px;cursor:pointer;transition:.15s}
+.acct:hover{border-color:var(--acc);color:var(--acc)}
+.acct.in{background:var(--acc);color:#052419;border-color:var(--acc)}
+
+/* ---------- body ---------- */
+.body{flex:1;overflow-y:auto;padding:14px 16px 44px;overscroll-behavior:contain}
+.empty{text-align:center;padding:56px 18px;color:var(--ink3)}
+.empty .ic{font-size:46px;margin-bottom:14px;opacity:.85}
+.status{font-size:12px;color:var(--acc);background:rgba(47,196,158,.09);
+  border:1px solid rgba(47,196,158,.22);border-radius:var(--r2);padding:10px 12px;margin-bottom:10px}
+.err{font-size:12px;color:#ffc9b0;background:rgba(230,103,103,.1);
+  border:1px solid rgba(230,103,103,.28);border-radius:var(--r2);padding:10px 12px;margin-bottom:10px;line-height:1.55}
+.loc{font-size:23px;font-weight:700;letter-spacing:-.025em;line-height:1.15}
+.sub{font-size:11px;color:var(--ink3);margin-top:5px}
+.pill{display:inline-block;font-size:9.5px;font-weight:700;color:#052419;padding:4px 10px;
+  border-radius:20px;margin-top:9px;letter-spacing:.04em;text-transform:uppercase}
+.salt{background:#4aa3ff}.fresh{background:var(--acc)}.brack{background:#a78bfa}.unk{background:#64748b}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;gap:4px;margin:16px 0 13px;overflow-x:auto;scrollbar-width:none;
+  padding-bottom:2px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;padding:8px 13px;font-size:12.5px;font-weight:600;border:1px solid var(--line);
+  background:var(--s1);color:var(--ink3);border-radius:20px;cursor:pointer;
+  white-space:nowrap;transition:.15s}
+.tab:hover{color:var(--ink2);border-color:var(--line2)}
+.tab.on{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
+
+/* ---------- hero score ---------- */
+.hero{background:linear-gradient(160deg,var(--s2) 0%,var(--s1) 70%);
+  border:1px solid var(--line);border-radius:var(--r);padding:17px 18px;margin-bottom:11px}
+.heroTop{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.heroLbl{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3)}
+.heroNum{font-size:54px;font-weight:800;line-height:.95;letter-spacing:-.045em;margin:6px 0 2px;
+  font-variant-numeric:tabular-nums}
+.heroOf{font-size:17px;font-weight:600;color:var(--ink3);letter-spacing:-.01em;margin-left:2px}
+.heroBand{font-size:14px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:7px}
+.heroDots{font-size:8px;letter-spacing:2px;opacity:.85}
+.heroMoon{text-align:center;flex-shrink:0;padding-top:2px}
+.hmIcon{font-size:30px;line-height:1}
+.hmTxt{font-size:9.5px;color:var(--ink3);margin-top:5px;line-height:1.45}
+.heroWhy{font-size:12.5px;color:var(--ink2);line-height:1.6;margin-top:13px;
+  padding-top:13px;border-top:1px solid var(--line)}
+
+/* ---------- condition strip ---------- */
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(66px,1fr));gap:7px;margin-bottom:11px}
+.stripCell{background:var(--s1);border:1px solid var(--line);border-radius:var(--r2);
+  padding:9px 5px;text-align:center}
+.scIco{font-size:14px;line-height:1;margin-bottom:4px}
+.scVal{font-size:13px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.scLbl{font-size:8.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px}
+
+/* ---------- panels ---------- */
+.panel{background:var(--s1);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px 15px;margin-bottom:11px}
+.pTitle{font-size:12.5px;font-weight:700;letter-spacing:-.01em;margin-bottom:9px;
+  display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pSwap{background:var(--s2);border:1px solid var(--line2);color:var(--ink2);font-size:10px;
+  font-weight:650;padding:4px 9px;border-radius:14px;cursor:pointer}
+.pSwap:hover{color:var(--acc);border-color:var(--acc)}
+.pBody{font-size:12px;color:var(--ink2);line-height:1.65}
+.pFoot{font-size:10px;color:var(--ink3);line-height:1.6;margin-top:9px;padding-top:9px;
+  border-top:1px solid var(--line)}
+
+/* ---------- charts ---------- */
+.chartWrap{margin:4px 0 10px}
+.hchart{width:100%;height:78px;overflow:visible}
+.hbase{stroke:var(--line2);stroke-width:.4}
+.hb{transition:opacity .12s}
+.hchart:hover .hb{opacity:.55}
+.hchart .hb:hover{opacity:1}
+.hbx{fill:var(--ink3);font-size:4.2px;font-family:inherit}
+.sparkRow{display:flex;align-items:center;gap:13px;margin:6px 0 10px}
+.spark{flex:1;height:38px;overflow:visible}
+.sparkNum{text-align:right;flex-shrink:0}
+.snV{font-size:20px;font-weight:800;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.snL{font-size:9px;color:var(--ink3);margin-top:3px;text-transform:uppercase;letter-spacing:.06em}
+
+/* ---------- score breakdown ---------- */
+.bdRow{display:flex;align-items:baseline;gap:9px;padding:7px 0;border-bottom:1px solid var(--line)}
+.bdRow:last-of-type{border-bottom:0}
+.bdK{font-size:11px;font-weight:650;width:92px;flex-shrink:0;color:var(--ink)}
+.bdD{font-size:11px;color:var(--ink3);flex:1;line-height:1.45}
+.bdV{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;flex-shrink:0;min-width:26px;text-align:right}
+.bdV.up{color:var(--acc)}.bdV.dn{color:var(--amber)}.bdV.nil{color:var(--ink3)}
+
+/* ---------- week ---------- */
+.week{display:flex;gap:5px;margin:4px 0 2px}
+.wDay{flex:1;text-align:center;background:var(--s2);border-radius:var(--r2);padding:9px 3px}
+.wName{font-size:9.5px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em}
+.wIco{font-size:15px;margin:5px 0 4px;line-height:1}
+.wBar{height:40px;display:flex;align-items:flex-end;justify-content:center;margin-bottom:5px}
+.wBar span{width:7px;border-radius:3px;display:block}
+.wScore{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.wTemp{font-size:9.5px;color:var(--ink3);margin-top:2px}
+
+/* ---------- generic cards / lists ---------- */
+.card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r);
+  margin-bottom:9px;overflow:hidden;transition:border-color .15s}
+.card:hover{border-color:var(--line2)}
+.chead{padding:12px 13px;cursor:pointer;display:flex;justify-content:space-between;
+  align-items:center;gap:11px}
+.rank{font-size:9.5px;font-weight:700;background:var(--s3);color:var(--acc2);border-radius:5px;
+  padding:3px 7px;margin-right:7px;letter-spacing:.02em}
+.fname{font-weight:650;font-size:14px;letter-spacing:-.01em}
+.sci{font-size:10px;color:var(--ink3);font-style:italic;margin-top:2px}
+.cnt{font-size:10px;color:var(--ink3);margin-top:3px}
+.arrow{color:var(--ink3);font-size:11px;flex-shrink:0}
+.det{display:none;padding:0 13px 13px;border-top:1px solid var(--line)}
+.det.on{display:block}
+.fphoto{width:50px;height:50px;object-fit:cover;border-radius:10px;flex-shrink:0;background:var(--s3)}
+.fphoto.ph{display:flex;align-items:center;justify-content:center;font-size:22px}
+.fbig{display:block;width:100%;height:auto;max-height:320px;object-fit:contain;
+  border-radius:var(--r2);margin-top:11px;background:#04101a}
 .fbigwrap{display:block;position:relative;margin-top:11px}
 .fbigwrap .fbig{margin-top:0}
-.fbigcap{font-size:9px;color:#9aa5b1;text-align:right;margin-top:3px}
-.reg{background:#fbfaf5;border:1px solid #e8e2cf;border-left:3px solid #b08a2e;border-radius:7px;padding:10px 11px;margin-top:12px;font-size:11px;line-height:1.6}
-.reg.cr{background:#fff2f2;border-color:#f2cccc;border-left-color:#c0392b}
-.rtitle{font-weight:700;font-size:10px;letter-spacing:.05em;color:#8a6a17;margin-bottom:6px}
-.reg.cr .rtitle{color:#c0392b}
-.rrow{margin-bottom:3px;color:#4a5560}
-.rnote{margin-top:5px;color:#6b7885;font-style:italic}
-.rflag{margin-top:7px;padding:6px 8px;background:#fff6e0;border-radius:5px;color:#8a6a17;font-weight:600}
-.rlink{display:inline-block;margin-top:8px;color:var(--pri);font-weight:700;text-decoration:none;font-size:11px}
-.rdate{margin-top:6px;font-size:9px;color:#9aa5b1}
-.det.on{display:block}
-.lbl{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--pri);margin:12px 0 6px}
-.bait{background:#f7f9fa;border-left:3px solid var(--sec);border-radius:5px;padding:9px 10px;margin-bottom:8px;font-size:12px}
-.bn{font-weight:650;margin-bottom:4px}
-.bd{font-size:11px;color:#4a5560;line-height:1.55;margin-bottom:3px}
-.rig{background:#eef5fc;border:1px solid #cfe2f4;border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.6;margin:7px 0}
-.how{background:#fff4ee;border-left:3px solid var(--acc);border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.6;margin-bottom:7px}
-.why{background:#f5f1fd;border-left:3px solid #7a5cbf;border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.6}
-.tt{font-weight:700;font-size:10px;letter-spacing:.04em;margin-bottom:3px}
-.when{background:#f0fbf5;border-left:3px solid var(--sec);border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.7;margin-top:8px;color:#41505c}
-.nod{font-size:11px;color:var(--mut);line-height:1.6;padding:10px 0}
-.obsmeta{background:#f4f7fa;border-left:3px solid var(--mut);border-radius:6px;padding:9px 10px;font-size:11px;line-height:1.7;color:#4a5560;margin-top:11px}
-.sol{background:linear-gradient(135deg,#1b2a3a 0%,#22384c 100%);color:#fff;border-radius:10px;padding:13px;margin-top:4px}
-.solhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
-.solph{font-size:15px;font-weight:700}
-.solsub{font-size:11px;color:#a8bccd;margin-top:3px}
-.solrate{font-size:10px;font-weight:700;padding:4px 9px;border-radius:20px;flex-shrink:0}
-.solnote{font-size:10px;color:#9aa5b1;line-height:1.6;margin-top:9px}
-.sol .solnote{color:#8fa6ba}
-.win{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--bd);border-radius:8px;padding:10px 11px;margin-bottom:7px}
-.win.major{border-left:4px solid var(--sec);background:#f6fdf9}
-.win.minor{border-left:4px solid #b08a2e;background:#fdfbf5}
-.win.live{box-shadow:0 0 0 2px var(--sec);background:#eafaf1}
-.win.past{opacity:.45}
-.wint{font-size:13px;font-weight:700}
-.winn{font-size:10px;color:var(--mut);margin-top:2px}
-.winb{font-size:9px;font-weight:700;color:var(--mut);letter-spacing:.05em}
-.win.live .winb{color:var(--sec)}
-.stn{font-size:11px;color:var(--mut);margin-bottom:8px}
-.tide{display:flex;justify-content:space-between;align-items:center;border-radius:8px;padding:9px 11px;margin-bottom:6px;border:1px solid var(--bd)}
-.tide.hi{border-left:4px solid var(--pri);background:#f4f9ff}
-.tide.lo{border-left:4px solid #8b95a1;background:#fafbfc}
-.tidet{font-size:13px;font-weight:650}
-.tidesub{font-size:10px;color:var(--mut);margin-top:2px}
-.daysw{display:flex;gap:6px;margin-bottom:12px}
-.dbtn{flex:1;padding:8px;font-size:12px;font-weight:700;border:1px solid var(--bd);background:#fff;color:var(--mut);border-radius:7px;cursor:pointer}
-.dbtn.on{background:var(--dark);color:#fff;border-color:var(--dark)}
-.tide.past{opacity:.45}
-.tidein{font-size:11px;color:var(--mut);font-weight:600}
-.acct{flex-shrink:0;padding:7px 12px;font-size:11px;font-weight:700;border:1px solid var(--pri);background:#fff;color:var(--pri);border-radius:20px;cursor:pointer}
-.acct.in{background:var(--pri);color:#fff}
-.fab{position:absolute;left:50%;transform:translateX(-50%);bottom:16px;z-index:500;padding:12px 20px;font-size:13px;font-weight:700;border:0;border-radius:30px;background:var(--acc);color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.3);cursor:pointer}
-.modal{display:none;position:fixed;inset:0;background:rgba(12,20,28,.55);z-index:2000;align-items:flex-end;justify-content:center}
-.modal.on{display:flex}
-.sheet{background:#fff;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:20px 18px 32px}
-@media(min-width:821px){.modal{align-items:center}.sheet{border-radius:14px;max-height:84vh}}
-.mtitle{font-size:19px;font-weight:700;margin-bottom:4px}
-.msub{font-size:12px;color:var(--mut);line-height:1.6;margin-bottom:16px}
-.fld{margin-bottom:12px}
-.fld label{display:block;font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
-.fld input,.fld select,.fld textarea{width:100%;padding:11px 12px;font-size:15px;border:1px solid var(--bd);border-radius:8px;background:#fff;font-family:inherit;-webkit-appearance:none}
-.fld textarea{min-height:72px;resize:vertical}
-.fld .hint2{font-size:10px;color:var(--mut);margin-top:4px;line-height:1.5}
-.row2{display:flex;gap:10px}.row2>*{flex:1}
-.btn{width:100%;padding:13px;font-size:14px;font-weight:700;border:0;border-radius:9px;background:var(--pri);color:#fff;cursor:pointer;margin-top:6px}
-.btn:disabled{opacity:.5}
-.btn.alt{background:#fff;color:var(--pri);border:1px solid var(--bd)}
-.btn.danger{background:#fff;color:#c0392b;border:1px solid #f0d0cc}
-.linky{background:none;border:0;color:var(--pri);font-size:12px;font-weight:600;cursor:pointer;padding:8px 0;text-decoration:underline}
-.msg{font-size:12px;padding:9px 11px;border-radius:7px;margin-bottom:12px;line-height:1.5}
-.msg.bad{background:#fff3ec;color:#9a3412;border:1px solid #ffd9c4}
-.msg.good{background:#f0fbf5;color:#0a6b48;border:1px solid #c6ecd9}
-.prev{width:100%;max-height:220px;object-fit:contain;border-radius:8px;background:#11202b;margin-top:8px}
-.cc{border:1px solid var(--bd);border-radius:10px;margin-bottom:10px;overflow:hidden}
-.ccimg{width:100%;max-height:260px;object-fit:contain;background:#11202b;display:block}
-.ccb{padding:11px 12px}
-.ccu{font-size:12px;font-weight:700}
-.ccs{font-size:14px;font-weight:700;margin:3px 0}
-.ccm{font-size:11px;color:var(--mut);line-height:1.6}
-.ccact{display:flex;gap:14px;align-items:center;margin-top:8px;font-size:12px}
-.ccact button{background:none;border:0;color:var(--mut);font-size:12px;font-weight:600;cursor:pointer;padding:0}
-.ccact button.liked{color:var(--acc)}
-.chip{display:inline-block;font-size:9px;font-weight:700;padding:3px 7px;border-radius:20px;background:#eef3f7;color:var(--mut);margin-right:5px}
-.obs img{width:46px;height:46px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--bd)}
-.on1{font-size:13px;font-weight:600}
-.on2{font-size:10px;color:var(--mut);margin-top:2px}
-.ctl{position:absolute;top:10px;right:10px;z-index:500;display:flex;flex-direction:column;gap:5px}
-.cbtn{padding:7px 11px;font-size:11px;font-weight:600;border:0;border-radius:6px;background:#fff;color:var(--dark);box-shadow:0 1px 6px rgba(0,0,0,.28);cursor:pointer}
-.cbtn.on{background:var(--pri);color:#fff}
-.cbtn.loc{background:var(--sec);color:#fff;margin-top:4px}
-.foot{font-size:10px;color:var(--mut);margin-top:16px;line-height:1.6;border-top:1px solid var(--bd);padding-top:10px}
-.spin{display:inline-block;width:11px;height:11px;border:2px solid #cfe2f4;border-top-color:var(--pri);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px;margin-right:6px}
+.fbigcap{font-size:9px;color:var(--ink3);text-align:right;margin-top:4px}
+.lbl{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--acc);margin:13px 0 6px}
+.hint{font-size:11px;color:var(--ink3);margin-bottom:11px;line-height:1.6}
+.hint2{font-size:10px;color:var(--ink3);margin-top:5px;line-height:1.55}
+.nod{font-size:11.5px;color:var(--ink3);line-height:1.65;padding:11px 0}
+.chip{display:inline-block;font-size:9.5px;font-weight:650;padding:4px 9px;border-radius:20px;
+  background:var(--s3);color:var(--ink2);margin:0 5px 5px 0}
+.foot{font-size:9.5px;color:var(--ink3);margin-top:18px;line-height:1.65;
+  border-top:1px solid var(--line);padding-top:12px}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--line2);
+  border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;
+  vertical-align:-1px;margin-right:7px}
 @keyframes sp{to{transform:rotate(360deg)}}
+
+/* ---------- bait / tackle blocks ---------- */
+.bait{background:var(--s2);border-left:3px solid var(--acc);border-radius:var(--r2);
+  padding:11px 12px;margin-bottom:9px;font-size:12px}
+.bn{font-weight:650;margin-bottom:5px;color:var(--ink)}
+.bd{font-size:11px;color:var(--ink2);line-height:1.6;margin-bottom:3px}
+.rig{background:rgba(74,163,255,.08);border:1px solid rgba(74,163,255,.2);border-radius:9px;
+  padding:10px 11px;font-size:11px;line-height:1.65;margin:8px 0;color:var(--ink2)}
+.how{background:rgba(250,178,25,.07);border-left:3px solid var(--amber);border-radius:9px;
+  padding:10px 11px;font-size:11px;line-height:1.65;margin-bottom:8px;color:var(--ink2)}
+.why{background:rgba(167,139,250,.08);border-left:3px solid #a78bfa;border-radius:9px;
+  padding:10px 11px;font-size:11px;line-height:1.65;color:var(--ink2)}
+.tt{font-weight:700;font-size:9.5px;letter-spacing:.06em;margin-bottom:4px}
+.when{background:rgba(47,196,158,.07);border-left:3px solid var(--acc);border-radius:9px;
+  padding:10px 11px;font-size:11px;line-height:1.75;margin-top:9px;color:var(--ink2)}
+
+/* ---------- regulations ---------- */
+.reg{background:rgba(250,178,25,.06);border:1px solid rgba(250,178,25,.2);
+  border-left:3px solid var(--amber);border-radius:var(--r2);padding:11px 12px;margin-top:12px;
+  font-size:11px;line-height:1.65}
+.reg.cr{background:rgba(230,103,103,.08);border-color:rgba(230,103,103,.3);border-left-color:var(--red)}
+.rtitle{font-weight:700;font-size:9.5px;letter-spacing:.06em;color:var(--amber);margin-bottom:7px}
+.reg.cr .rtitle{color:var(--red)}
+.rrow{margin-bottom:4px;color:var(--ink2)}
+.rnote{margin-top:6px;color:var(--ink3);font-style:italic}
+.rflag{margin-top:8px;padding:7px 9px;background:rgba(250,178,25,.1);border-radius:7px;
+  color:var(--amber);font-weight:650}
+.rlink{display:inline-block;margin-top:9px;color:var(--pri);font-weight:700;
+  text-decoration:none;font-size:11px}
+.rdate{margin-top:7px;font-size:9px;color:var(--ink3)}
+
+/* ---------- tides & solunar ---------- */
+.daysw{display:flex;gap:5px;margin-bottom:12px}
+.dbtn{flex:1;padding:9px;font-size:12px;font-weight:650;border:1px solid var(--line);
+  background:var(--s1);color:var(--ink3);border-radius:var(--r2);cursor:pointer}
+.dbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.sol{background:linear-gradient(150deg,var(--s2),var(--s1));border:1px solid var(--line);
+  border-radius:var(--r);padding:14px 15px}
+.solhead{display:flex;justify-content:space-between;align-items:flex-start;gap:11px}
+.solph{font-size:15px;font-weight:700;letter-spacing:-.015em}
+.solsub{font-size:11px;color:var(--ink3);margin-top:4px}
+.solrate{font-size:9.5px;font-weight:700;padding:5px 10px;border-radius:20px;flex-shrink:0;color:#052419}
+.solnote{font-size:10px;color:var(--ink3);line-height:1.65;margin-top:10px}
+.sol .solnote{color:var(--ink3)}
+.win{display:flex;justify-content:space-between;align-items:center;gap:11px;
+  border:1px solid var(--line);border-radius:var(--r2);padding:11px 12px;margin-bottom:7px;
+  background:var(--s1)}
+.win.major{border-left:3px solid var(--acc)}
+.win.minor{border-left:3px solid var(--amber)}
+.win.live{box-shadow:0 0 0 1px var(--acc);background:rgba(47,196,158,.07)}
+.win.past{opacity:.4}
+.winl{flex:1;min-width:0}
+.wint{font-size:13px;font-weight:700;letter-spacing:-.01em}
+.winn{font-size:10px;color:var(--ink3);margin-top:3px}
+.winb{font-size:9px;font-weight:700;color:var(--ink3);letter-spacing:.06em}
+.win.live .winb{color:var(--acc)}
+.stn{font-size:11px;color:var(--ink3);margin-bottom:9px}
+.tide{display:flex;justify-content:space-between;align-items:center;border-radius:var(--r2);
+  padding:10px 12px;margin-bottom:6px;border:1px solid var(--line);background:var(--s1)}
+.tide.hi{border-left:3px solid var(--pri)}
+.tide.lo{border-left:3px solid var(--ink3)}
+.tide.past{opacity:.4}
+.tidet{font-size:13px;font-weight:650;letter-spacing:-.01em}
+.tidesub{font-size:10px;color:var(--ink3);margin-top:2px}
+.tidein{font-size:11px;color:var(--ink3);font-weight:650}
+
+/* ---------- spots ---------- */
+.sctx{background:var(--s2);border:1px solid var(--line);color:var(--ink2);border-radius:var(--r2);
+  padding:10px 12px;font-size:11px;line-height:1.65;margin-bottom:11px;font-weight:600}
+.whyblk{background:var(--s2);border-left:3px solid var(--acc);border-radius:var(--r2);
+  padding:11px 12px;margin-top:12px}
+.whyt{font-weight:700;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.whyl{font-size:11px;line-height:1.7;color:var(--ink2)}
+.whyl.agn{margin-top:7px;color:var(--amber)}
+
+/* ---------- map controls ---------- */
+.ctl{position:absolute;top:11px;right:11px;z-index:500;display:flex;flex-direction:column;gap:5px}
+.cbtn{padding:8px 12px;font-size:11px;font-weight:650;border:1px solid var(--line2);
+  border-radius:9px;background:rgba(14,31,46,.94);color:var(--ink2);
+  box-shadow:0 2px 10px rgba(0,0,0,.4);cursor:pointer;backdrop-filter:blur(8px);transition:.15s}
+.cbtn:hover{color:var(--ink);border-color:var(--acc)}
+.cbtn.on{background:var(--acc);color:#052419;border-color:var(--acc)}
+.cbtn.loc{color:#9ecbff}
+.fab{position:absolute;left:50%;transform:translateX(-50%);bottom:17px;z-index:500;
+  padding:12px 21px;font-size:13px;font-weight:700;border:0;border-radius:30px;
+  background:var(--acc);color:#052419;box-shadow:0 4px 18px rgba(47,196,158,.34);cursor:pointer;
+  letter-spacing:-.01em}
+.fab:hover{background:var(--acc2)}
+
+/* ---------- depth legend ---------- */
+/* Leaflet's own chrome ships light; restyle it or it fights the theme */
+.leaflet-control-zoom a{background:rgba(14,31,46,.94)!important;color:var(--ink2)!important;
+  border-color:var(--line2)!important;backdrop-filter:blur(8px);font-weight:600}
+.leaflet-control-zoom a:hover{background:var(--s3)!important;color:var(--ink)!important}
+.leaflet-bar{border:1px solid var(--line2)!important;box-shadow:0 2px 10px rgba(0,0,0,.4)!important;
+  border-radius:10px!important;overflow:hidden}
+.leaflet-control-attribution{background:rgba(8,20,32,.82)!important;color:var(--ink3)!important;
+  font-size:9px!important;padding:2px 6px!important;backdrop-filter:blur(6px)}
+.leaflet-control-attribution a{color:var(--ink3)!important;text-decoration:none}
+.leaflet-container{background:var(--bg)}
+/* last-resort dark map: invert standard OSM tiles so the theme still holds */
+.tileDark{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9) saturate(.85)}
+/* strip values must never wrap — a wrapped cell looks broken */
+.scVal{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scLbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* show that the tab row scrolls */
+.tabs{-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 18px),transparent 100%);
+  mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 18px),transparent 100%)}
+.hidectl{display:none}
+.lySec{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink3);margin:16px 0 7px}
+.lyRow{display:flex;align-items:center;gap:12px;width:100%;padding:12px 12px;background:var(--s2);
+  border:1px solid var(--line);border-radius:var(--r2);cursor:pointer;font-family:inherit;
+  text-align:left;margin-bottom:7px;transition:.15s}
+.lyRow:hover{border-color:var(--line2)}
+.lyRow.on{border-color:var(--acc);background:rgba(47,196,158,.09)}
+.lyIco{width:34px;height:34px;border-radius:10px;background:var(--s3);display:flex;
+  align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.lyTxt{flex:1;min-width:0}
+.lyT{font-size:13.5px;font-weight:650;color:var(--ink)}
+.lyD{font-size:10.5px;color:var(--ink3);margin-top:3px;line-height:1.5}
+.lyAlt{padding:4px 2px 10px}
+.lyAltT{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink3);margin-bottom:8px}
+.lyPill{background:var(--s2);border:1px solid var(--line2);color:var(--ink2);font-size:10.5px;
+  font-weight:650;padding:6px 11px;border-radius:16px;cursor:pointer;margin:0 5px 5px 0}
+.lyPill.on{background:var(--acc);color:#052419;border-color:var(--acc)}
+.lyChk{color:var(--acc);font-weight:700;font-size:14px;flex-shrink:0;width:14px;text-align:center}
+.dlegend{background:rgba(14,31,46,.96);border:1px solid var(--line2);padding:10px 12px;
+  border-radius:var(--r2);max-width:250px;box-shadow:0 3px 14px rgba(0,0,0,.45);
+  font-size:10px;line-height:1.55;color:var(--ink2);backdrop-filter:blur(8px)}
+.dlt{font-weight:700;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--acc);
+  margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:7px}
+.dlsw{background:none;border:0;color:var(--amber);font-size:9px;font-weight:700;cursor:pointer;
+  padding:0;text-transform:none;letter-spacing:0}
+.dlr{margin-bottom:5px}
+.dline{display:inline-block;width:20px;height:0;border-top:1.5px dashed #6b9dc4;
+  vertical-align:middle;margin-right:4px}
+.dsw{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-2px;
+  border:1px solid var(--line2)}
+.dsw.sh{background:#2f6d94}.dsw.dp{background:#0c2334}
+.dlnote{margin-top:7px;padding-top:7px;border-top:1px solid var(--line);color:var(--ink3);
+  font-size:9px;line-height:1.55}
+
+/* ---------- shops ---------- */
+.slrow{display:flex;align-items:center;gap:11px;width:100%;padding:12px 4px;background:none;
+  border:0;border-bottom:1px solid var(--line);cursor:pointer;font-family:inherit;text-align:left}
+.slrow:hover{background:rgba(255,255,255,.02)}
+.slic{width:34px;height:34px;border-radius:50%;background:var(--s3);display:flex;
+  align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.slname{font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;color:var(--ink)}
+.slsub{font-size:10.5px;color:var(--ink3);margin-top:3px}
+.shopblk{border-top:1px solid var(--line);padding:12px 0}
+.sblbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--ink3);margin-bottom:5px}
+.sbval{font-size:12.5px;line-height:1.6;color:var(--ink2)}
+.ob{display:inline-block;font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;margin-left:5px}
+.ob.open{background:rgba(47,196,158,.17);color:var(--acc)}
+.ob.shut{background:rgba(230,103,103,.17);color:var(--red)}
+.ob.unk{background:var(--s3);color:var(--ink3)}
+
+/* ---------- modal ---------- */
+.modal{display:none;position:fixed;inset:0;background:rgba(4,10,16,.7);z-index:2000;
+  align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)}
+.modal.on{display:flex}
+.sheet{background:var(--s1);border:1px solid var(--line2);width:100%;max-width:540px;
+  max-height:88vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:22px 19px 34px}
+@media(min-width:821px){.modal{align-items:center}.sheet{border-radius:var(--r);max-height:86vh}}
+.mtitle{font-size:20px;font-weight:700;letter-spacing:-.025em;margin-bottom:5px}
+.msub{font-size:12px;color:var(--ink3);line-height:1.65;margin-bottom:17px}
+.fld{margin-bottom:13px}
+.fld label{display:block;font-size:9.5px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:6px}
+.fld input,.fld select,.fld textarea{width:100%;padding:12px 13px;font-size:15px;
+  border:1px solid var(--line2);border-radius:var(--r2);background:var(--s2);color:var(--ink);
+  -webkit-appearance:none;outline:none}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--acc)}
+.fld textarea{min-height:76px;resize:vertical}
+.row2{display:flex;gap:9px}.row2>*{flex:1}
+.btn{width:100%;padding:13px;font-size:14px;font-weight:700;border:0;border-radius:var(--r2);
+  background:var(--acc);color:#052419;cursor:pointer;margin-top:7px;letter-spacing:-.01em}
+.btn:hover{background:var(--acc2)}
+.btn:disabled{opacity:.45}
+.btn.alt{background:var(--s2);color:var(--ink2);border:1px solid var(--line2)}
+.btn.alt:hover{color:var(--ink);border-color:var(--acc)}
+.btn.danger{background:var(--s2);color:var(--red);border:1px solid rgba(230,103,103,.34)}
+.linky{background:none;border:0;color:var(--pri);font-size:12px;font-weight:650;cursor:pointer;
+  padding:9px 0;text-decoration:underline}
+.msg{font-size:12px;padding:10px 12px;border-radius:9px;margin-bottom:13px;line-height:1.55}
+.msg.bad{background:rgba(230,103,103,.1);color:#ffc9b0;border:1px solid rgba(230,103,103,.28)}
+.msg.good{background:rgba(47,196,158,.1);color:var(--acc2);border:1px solid rgba(47,196,158,.28)}
+.prev{width:100%;max-height:230px;object-fit:contain;border-radius:var(--r2);
+  background:#04101a;margin-top:9px}
+
+/* ---------- community ---------- */
+.cc{border:1px solid var(--line);border-radius:var(--r);margin-bottom:11px;overflow:hidden;
+  background:var(--s1)}
+.ccimg{width:100%;max-height:270px;object-fit:contain;background:#04101a;display:block}
+.ccb{padding:12px 13px}
+.ccu{font-size:11.5px;font-weight:700;color:var(--acc)}
+.ccs{font-size:15px;font-weight:700;letter-spacing:-.02em;margin:4px 0}
+.ccm{font-size:10.5px;color:var(--ink3);line-height:1.65}
+.ccact{display:flex;gap:16px;align-items:center;margin-top:10px;font-size:12px}
+.ccact button{background:none;border:0;color:var(--ink3);font-size:12px;font-weight:650;
+  cursor:pointer;padding:0}
+.ccact button.liked{color:var(--amber)}
+.obsmeta{background:var(--s2);border-left:3px solid var(--line2);border-radius:9px;
+  padding:10px 11px;font-size:11px;line-height:1.75;color:var(--ink2);margin-top:11px}
+
+/* ---------- peek bar: the score stays visible with the panel closed ---------- */
+.peek{display:none;width:100%;align-items:center;gap:12px;padding:11px 16px 13px;
+  background:none;border:0;cursor:pointer;text-align:left;font-family:inherit}
+.pkScore{width:46px;height:46px;border-radius:13px;background:var(--s2);border:1px solid var(--line2);
+  display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;
+  letter-spacing:-.03em;color:var(--ink3);flex-shrink:0;font-variant-numeric:tabular-nums}
+.pkMid{flex:1;min-width:0}
+.pkName{font-size:14.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pkSub{font-size:10.5px;color:var(--ink3);margin-top:2px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.pkUp{color:var(--ink3);font-size:11px;flex-shrink:0}
+
+/* ---------- mobile ---------- */
 .grab{display:none}
 .side.small .head,.side.small .body{display:none}
 @media(min-width:821px){
   .side{transition:width .25s ease}
   .side.small{width:0;min-width:0;overflow:hidden;box-shadow:none}
-  .grab{display:none!important}
+  .grab,.peek{display:none!important}
 }
 @media(max-width:820px){
+  body{font-size:14.5px}
   .wrap{flex-direction:column-reverse}
-  .side{width:100%;height:52%;transition:height .25s ease;border-radius:14px 14px 0 0;
-        box-shadow:0 -3px 16px rgba(0,0,0,.16)}
-  .side.big{height:93%}
-  .side.small{height:46px;border-radius:14px 14px 0 0}
-  .mapwrap{height:48%;transition:height .25s ease}
-  .side.big ~ .mapwrap{height:7%}
-  .side.small ~ .mapwrap{height:calc(100% - 46px)}
-  .grab{display:block;width:100%;padding:9px 0 4px;border:0;background:none;cursor:pointer;flex-shrink:0}
-  .grab span{display:block;width:40px;height:4px;border-radius:3px;background:#cfd8e0;margin:0 auto}
-  .side.big .grab span{background:var(--pri)}
-  .side.small .grab span{background:var(--acc);width:56px}
-  .ctl{top:8px;right:8px;gap:5px}
-  .cbtn{padding:9px 10px;font-size:15px;line-height:1;min-width:40px}
+  /* map-dominant by default: the chart is the app, data pulls up over it */
+  .side{width:100%;height:96px;transition:height .26s cubic-bezier(.32,.72,0,1);
+    border-radius:20px 20px 0 0;box-shadow:0 -6px 26px rgba(0,0,0,.55);
+    border-top:1px solid var(--line2);background:var(--s1)}
+  .side.mid{height:56%}
+  .side.big{height:94%}
+  .side.small{height:44px}
+  .mapwrap{height:calc(100% - 96px);transition:height .26s cubic-bezier(.32,.72,0,1)}
+  .side.mid ~ .mapwrap{height:44%}
+  .side.big ~ .mapwrap{height:6%}
+  .side.small ~ .mapwrap{height:calc(100% - 44px)}
+  /* collapsed: only the peek bar shows */
+  .side .head,.side .body{display:none}
+  .side.mid .head,.side.mid .body,.side.big .head,.side.big .body{display:block}
+  .side.mid .body,.side.big .body{flex:1;overflow-y:auto}
+  .side.small .head,.side.small .body{display:none}
+  .peek{display:flex}
+  .side.mid .peek,.side.big .peek,.side.small .peek{display:none}
+  .grab{display:block;width:100%;padding:9px 0 3px;border:0;background:none;cursor:pointer;flex-shrink:0}
+  .grab span{display:block;width:44px;height:4px;border-radius:3px;background:var(--line2);margin:0 auto}
+  .side.big .grab span{background:var(--acc)}
+  .side.small .grab span{background:var(--amber);width:58px}
+  .head{padding:9px 15px 10px}
+  .body{padding:12px 15px 36px}
+  .logo{font-size:17px}
+  .mark{width:27px;height:27px}
+  .tag{font-size:9.5px}
+  .loc{font-size:20px}
+  .heroNum{font-size:46px}
+  /* bigger controls — wet fingers, sun glare, a moving boat */
+  .ctl{top:10px;right:10px;gap:7px}
+  .cbtn{padding:0;width:52px;height:52px;font-size:20px;line-height:1;border-radius:14px;
+    display:flex;align-items:center;justify-content:center}
   .lw{display:none}
-  .fab{bottom:10px;padding:10px 17px;font-size:12px}
-  .head{padding:10px 14px}
-  .body{padding:12px 14px 34px}
-  .logo{font-size:18px}
-  .tag{font-size:10px}
+  .fab{bottom:14px;padding:13px 22px;font-size:13px}
+  .dlegend{max-width:186px;font-size:9px;padding:8px 10px}
+  .week{gap:3px}
+  .wDay{padding:7px 2px}
+  .strip{grid-template-columns:repeat(auto-fit,minmax(58px,1fr));gap:5px}
 }
 </style>
 </head>
@@ -202,6 +460,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <div class="wrap">
   <div class="side" id="side">
     <button class="grab" onclick="toggleSheetSize()" aria-label="Expand or shrink panel"><span></span></button>
+    <button class="peek" id="peek" onclick="sheetSize('mid')" aria-label="Open the forecast panel">
+      <div class="pkScore" id="pkScore">—</div>
+      <div class="pkMid">
+        <div class="pkName" id="pkName">Tap the water to start</div>
+        <div class="pkSub" id="pkSub">Bitecast</div>
+      </div>
+      <div class="pkUp">▲</div>
+    </button>
     <div class="head">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div>
@@ -229,7 +495,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v17 shared-keys</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v21.1 spot-water</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -245,12 +511,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div class="mapwrap">
     <div id="map"></div>
     <div class="ctl">
-      <button class="cbtn on" id="b-map" onclick="setBase('map')">🗺️<span class="lw"> Map</span></button>
-      <button class="cbtn" id="b-sat" onclick="setBase('sat')">🛰️<span class="lw"> Satellite</span></button>
-      <button class="cbtn loc" id="b-loc" onclick="locateMe()">📍<span class="lw"> Locate me</span></button>
-      <button class="cbtn" id="b-full" onclick="toggleFullMap()">⤢<span class="lw"> Full map</span></button>
-      <button class="cbtn" id="b-shop" onclick="toggleShops()">🪱<span class="lw"> Shops</span></button>
-      <button class="cbtn" id="b-diag" onclick="runDiagnostics()">🩺<span class="lw"> Test</span></button>
+      <button class="cbtn" id="b-layers" onclick="openLayers()" aria-label="Map layers">⧉<span class="lw"> Layers</span></button>
+      <button class="cbtn loc" id="b-loc" onclick="locateMe()" aria-label="Find my location">📍<span class="lw"> Locate</span></button>
+      <button class="cbtn" id="b-full" onclick="toggleFullMap()" aria-label="Full screen map">⤢<span class="lw"> Full map</span></button>
+      <!-- kept for the layers sheet to drive; never shown on the map itself -->
+      <span class="hidectl">
+        <button id="b-map" class="on" onclick="setBase('map')"></button>
+        <button id="b-sat" onclick="setBase('sat')"></button>
+        <button id="b-depth" onclick="toggleDepth()"></button>
+        <button id="b-radar" onclick="toggleRadar()"></button>
+        <button id="b-shop" onclick="toggleShops()"></button>
+      </span>
     </div>
     <button class="fab" id="fab" onclick="openLogCatch()">＋ Log a catch</button>
   </div>
@@ -269,7 +540,60 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 ----------------------------------------------------------------*/
 
 const map = L.map('map', {zoomControl:true}).setView([27.6,-81.6], 7);
-const baseMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'});
+/* Dark basemap to match the interface — a light map under a dark UI reads
+   like two different apps, and dark is easier on the eyes at 5am anyway.
+   Falls back to standard OSM if Carto is unreachable. */
+/* Dark basemap chain. Esri leads because that host is already proven to
+   work here (the satellite layer uses it). The last entry is ordinary OSM
+   inverted with a CSS filter — not as pretty, but it means the app can
+   never end up with a light map under a dark interface. */
+const BASE_SOURCES=[
+  {n:'Esri Dark Gray',
+   u:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+   a:'\u00A9 Esri', max:16, sub:'abc', filter:false},
+  {n:'Carto Dark',
+   u:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+   a:'\u00A9 OpenStreetMap, \u00A9 CARTO', max:20, sub:'abcd', filter:false},
+  {n:'OSM inverted',
+   u:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+   a:'\u00A9 OpenStreetMap', max:19, sub:'abc', filter:true}
+];
+let baseIdx=0, baseMap=null, baseFails=0;
+
+function buildBase(){
+  const s=BASE_SOURCES[baseIdx];
+  const l=L.tileLayer(s.u,{maxZoom:s.max,subdomains:s.sub,attribution:s.a,
+                           className:s.filter?'tileDark':''});
+  baseFails=0;
+  l.on('tileerror',()=>{
+    // a few misses are normal past a source's zoom ceiling; a wall of them is not
+    if(++baseFails<8) return;
+    if(baseIdx>=BASE_SOURCES.length-1){
+      console.warn('no dark basemap reachable; staying on', s.n);
+      baseFails=-1e9;
+      return;
+    }
+    baseIdx++; baseFails=-1e9;
+    console.warn('basemap "'+s.n+'" unreachable, trying "'+BASE_SOURCES[baseIdx].n+'"');
+    const was=map.hasLayer(l);
+    if(was) map.removeLayer(l);
+    baseMap=buildBase();
+    if(was) baseMap.addTo(map);
+  });
+  return l;
+}
+baseMap=buildBase();
+
+/* Let the angler force a specific basemap rather than wait on detection. */
+function setBaseSource(i){
+  baseIdx=Math.max(0,Math.min(BASE_SOURCES.length-1,i));
+  const was=map.hasLayer(baseMap);
+  if(was) map.removeLayer(baseMap);
+  baseMap=buildBase();
+  if(was||!map.hasLayer(baseSat)) baseMap.addTo(map);
+  if(typeof openLayers==='function') openLayers();
+}
+
 const SAT_SOURCES=[
   {n:'Esri',u:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',a:'© Esri'},
   {n:'USGS',u:'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',a:'USGS'},
@@ -301,6 +625,122 @@ function setBase(k){
   (k==='sat'?baseSat:baseMap).addTo(map);
   document.getElementById('b-map').classList.toggle('on',k==='map');
   document.getElementById('b-sat').classList.toggle('on',k==='sat');
+}
+
+/* ============ DEPTH CONTOURS (NOAA nautical charts) ============
+   NOAA's official charts carry printed soundings and depth contour lines —
+   the thing an angler actually reads. Several candidate endpoints, tried in
+   order, because a silently-dead tile host is how the old depth layer failed. */
+const DEPTH_SOURCES=[
+  {n:'NOAA charts', u:'https://tileservice.charts.noaa.gov/tiles/50000_1/{z}/{x}/{y}.png',
+   a:'NOAA Office of Coast Survey', max:18,
+   note:'Official NOAA nautical chart. Printed numbers are soundings; contour lines join equal depths.'},
+  {n:'NOAA ENC',   u:'https://tileservice.charts.noaa.gov/tiles/encdisplay/{z}/{x}/{y}.png',
+   a:'NOAA ENC', max:18,
+   note:'NOAA electronic navigational chart display.'},
+  {n:'OpenSeaMap', u:'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
+   a:'OpenSeaMap', max:18,
+   note:'OpenSeaMap marine overlay — marks, buoys and charted hazards.'}
+];
+let depthIdx=0, depthLayer=null, depthOn=false, depthFails=0, depthLegend=null;
+
+function buildDepthLayer(){
+  const s=DEPTH_SOURCES[depthIdx];
+  const l=L.tileLayer(s.u,{maxZoom:s.max,opacity:0.85,attribution:s.a});
+  depthFails=0;
+  l.on('tileerror',()=>{
+    // a handful of missing tiles is normal at the edge of chart coverage;
+    // a wall of them means the source is dead, so move to the next one
+    if(++depthFails<6) return;
+    if(depthIdx>=DEPTH_SOURCES.length-1){
+      depthNote('This chart source is not returning tiles. Depth coverage may be unavailable here.');
+      return;
+    }
+    depthIdx++;
+    console.warn('depth source failed, switching to',DEPTH_SOURCES[depthIdx].n);
+    const was=depthOn;
+    if(depthLayer) map.removeLayer(depthLayer);
+    depthLayer=buildDepthLayer();
+    if(was){ depthLayer.addTo(map); paintDepthLegend(); }
+  });
+  return l;
+}
+
+function depthNote(msg){
+  const el=document.getElementById('depthmsg');
+  if(el) el.textContent=msg;
+}
+
+function toggleDepth(){
+  const btn=document.getElementById('b-depth');
+  if(depthOn){
+    if(depthLayer) map.removeLayer(depthLayer);
+    if(depthLegend){ depthLegend.remove(); depthLegend=null; }
+    depthOn=false; btn.classList.remove('on');
+    return;
+  }
+  if(!depthLayer) depthLayer=buildDepthLayer();
+  depthLayer.addTo(map);
+  depthOn=true; btn.classList.add('on');
+  paintDepthLegend();
+  if(map.getZoom()<10) map.setZoom(11);   // contours are unreadable zoomed out
+}
+
+/* Chart coverage varies by area, so let the angler pick the source rather
+   than being stuck with whichever one loaded first. */
+function setDepthSource(i){
+  depthIdx=Math.max(0,Math.min(DEPTH_SOURCES.length-1,i));
+  const was=depthOn;
+  if(depthLayer) map.removeLayer(depthLayer);
+  depthLayer=buildDepthLayer();
+  if(was){ depthLayer.addTo(map); paintDepthLegend(); }
+  closeModal();
+}
+
+function openDepthPicker(){
+  openModal(`
+    <div class="mtitle">🌊 Fishing map</div>
+    <div class="msub">Depth contours and soundings come from official nautical charts. Coverage differs by area — if one looks blank where you fish, try another.</div>
+    ${DEPTH_SOURCES.map((s,i)=>`
+      <button class="slrow" onclick="setDepthSource(${i})">
+        <div class="slic">${i===depthIdx?'✓':'🌊'}</div>
+        <div style="flex:1;min-width:0;text-align:left">
+          <div class="slname">${esc(s.n)}${i===depthIdx?' <span class="chip">in use</span>':''}</div>
+          <div class="slsub">${esc(s.note)}</div>
+        </div><div class="arrow">›</div>
+      </button>`).join('')}
+    <div class="shopblk">
+      <div class="sblbl">Reading a chart</div>
+      <div class="sbval" style="font-size:12px;line-height:1.65">
+        A plain number on the water is a <b>sounding</b> — the charted depth at that exact point.
+        Lines joining equal depths are <b>contours</b>; where they bunch together the bottom drops away fast,
+        and that edge is usually where fish sit.<br><br>
+        Most Florida charts are in <b>feet</b>, but the chart title governs — some are metres or fathoms.
+        Depths are measured to mean lower low water, so on an average tide there is more water than printed.
+      </div>
+    </div>
+    <button class="btn alt" onclick="closeModal()">Close</button>
+  `);
+}
+
+function paintDepthLegend(){
+  if(depthLegend) depthLegend.remove();
+  const s=DEPTH_SOURCES[depthIdx];
+  depthLegend=L.control({position:'bottomleft'});
+  depthLegend.onAdd=function(){
+    const d=L.DomUtil.create('div','dlegend');
+    d.innerHTML=`
+      <div class="dlt">${esc(s.n)}
+        <button class="dlsw" onclick="openDepthPicker()">change ›</button></div>
+      <div class="dlr"><b>12</b> a printed number is a sounding: charted depth at that exact spot</div>
+      <div class="dlr"><span class="dline"></span> a contour line joins points of equal depth — tight lines mean a steep drop-off</div>
+      <div class="dlr"><span class="dsw sh"></span> lighter blue is shallower, <span class="dsw dp"></span> white or pale is deeper open water</div>
+      <div class="dlnote">Soundings on NOAA charts are in <b>feet</b> for most Florida charts, but check the chart title — some are metres or fathoms. Depths are referenced to mean lower low water, so there is usually <i>more</i> water than shown.</div>
+      <div class="dlnote" id="depthmsg"></div>`;
+    L.DomEvent.disableClickPropagation(d);
+    return d;
+  };
+  depthLegend.addTo(map);
 }
 
 /* ============ TACKLE LIBRARY ============
@@ -719,10 +1159,19 @@ async function runDiagnostics(){
     ['Esri satellite tiles', probeImage('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/7/54/34')],
     ['Google satellite tiles', probeImage('https://mt1.google.com/vt/lyrs=s&x=34&y=54&z=7')],
     ['Overpass (water names)', probeJSON('https://overpass-api.de/api/interpreter?data='+encodeURIComponent('[out:json][timeout:10];node(26.72,-81.84,26.73,-81.83);out count;'))],
-    ['iNaturalist (fish records)', probeJSON('https://api.inaturalist.org/v1/observations?lat=26.72&lng=-81.83&radius=8&taxon_id=47178&per_page=1')]
+    ['iNaturalist (fish records)', probeJSON('https://api.inaturalist.org/v1/observations?lat=26.72&lng=-81.83&radius=8&taxon_id=47178&per_page=1')],
+    ['Open-Meteo (weather)', probeJSON('https://api.open-meteo.com/v1/forecast?latitude=26.6&longitude=-81.9&current=surface_pressure')],
+    ['RainViewer (radar)', probeJSON('https://api.rainviewer.com/public/weather-maps.json')],
+    ['Esri dark basemap', probeImage('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/7/54/34')],
+    ['Carto dark basemap', probeImage('https://a.basemaps.cartocdn.com/dark_all/7/34/54.png')],
+    ['NOAA charts (depth contours)', probeImage('https://tileservice.charts.noaa.gov/tiles/50000_1/12/1113/1732.png')],
+    ['NOAA ENC (depth contours)', probeImage('https://tileservice.charts.noaa.gov/tiles/encdisplay/12/1113/1732.png')],
+    ['OpenSeaMap (marine overlay)', probeImage('https://tiles.openseamap.org/seamark/12/1113/1732.png')]
   ];
   const results=await Promise.all(tests.map(t=>t[1]));
-  const blocked=results.filter((r,i)=>i>=3&&!r).length;
+  const blocked=results.filter((r,i)=>i>=3&&i<=4&&!r).length;
+  const charts=results.slice(9);
+  const chartsOk=charts.filter(Boolean).length;
   let h='<div class="loc">Connection test</div><div class="sub">What this browser is allowed to reach</div>';
   h+='<div style="margin-top:14px">';
   tests.forEach((t,i)=>{
@@ -740,6 +1189,15 @@ async function runDiagnostics(){
   } else {
     h+=`<div style="margin-top:14px;padding:10px;background:#f0fbf5;border-left:3px solid var(--sec);border-radius:6px;font-size:12px;line-height:1.6">
       Everything is reachable. Tap the map and you will get live water names and live fish records.</div>`;
+  }
+  if(!chartsOk){
+    h+=`<div class="err" style="margin-top:12px">
+      No chart source is answering, so the 🌊 fishing map will have nothing to draw.
+      If the other rows above are green, the chart hosts themselves are the problem rather than your connection.</div>`;
+  } else if(chartsOk<charts.length){
+    h+=`<div style="margin-top:12px;padding:10px;background:#fffaf0;border-left:3px solid #b08a2e;border-radius:6px;font-size:12px;line-height:1.6">
+      ${chartsOk} of ${charts.length} chart sources are reachable. Open the 🌊 fishing map and use
+      <b>change ›</b> on the legend to pick one that works where you fish.</div>`;
   }
   h+='<div class="foot">Tap the map to go back to fishing.</div>';
   out().innerHTML=h;
@@ -1883,6 +2341,915 @@ function openShop(i){
   `);
 }
 
+/* ============================================================
+   WEATHER & BAROMETRIC PRESSURE  (Open-Meteo — free, no key)
+   Barometric trend is the most useful weather signal in fishing: a
+   falling glass ahead of a front switches fish on, a high flat glass
+   behind one shuts them down. Competitors show the number; showing
+   the trend and what it means is the edge.
+   ============================================================ */
+const OM='https://api.open-meteo.com/v1/forecast';
+let WX=null, WX_ERR=null;
+
+async function fetchWeather(lat,lng){
+  const p=new URLSearchParams({
+    latitude:lat.toFixed(4), longitude:lng.toFixed(4),
+    current:'temperature_2m,apparent_temperature,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover,precipitation,weather_code,is_day',
+    hourly:'temperature_2m,surface_pressure,wind_speed_10m,wind_direction_10m,cloud_cover,precipitation_probability',
+    daily:'weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,precipitation_probability_max',
+    temperature_unit:'fahrenheit', wind_speed_unit:'mph', precipitation_unit:'inch',
+    timezone:'auto', past_hours:'12', forecast_days:'7'
+  });
+  const d=await getJSON(OM+'?'+p.toString(),20000);
+  if(!d||!d.current) throw new Error('weather response had no current conditions');
+  return d;
+}
+
+const COMPASS=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const compass=d=>COMPASS[Math.round((d%360)/22.5)%16];
+
+const WXCODE={0:['Clear','☀️'],1:['Mostly clear','🌤️'],2:['Part cloud','⛅'],3:['Overcast','☁️'],
+ 45:['Fog','🌫️'],48:['Fog','🌫️'],51:['Light drizzle','🌦️'],53:['Drizzle','🌦️'],55:['Drizzle','🌦️'],
+ 61:['Light rain','🌧️'],63:['Rain','🌧️'],65:['Heavy rain','🌧️'],71:['Snow','🌨️'],
+ 80:['Showers','🌦️'],81:['Showers','🌧️'],82:['Heavy showers','⛈️'],
+ 95:['Thunderstorm','⛈️'],96:['Thunderstorm','⛈️'],99:['Thunderstorm','⛈️']};
+const wxDesc=c=>WXCODE[c]||['—','🌡️'];
+
+/* Pressure trend across roughly the last six hours, in millibars. */
+function pressureTrend(wx){
+  if(!wx||!wx.hourly||!wx.hourly.surface_pressure) return null;
+  const times=wx.hourly.time||[], vals=wx.hourly.surface_pressure||[];
+  const now=Date.now();
+  let iNow=-1;
+  for(let i=0;i<times.length;i++){
+    if(new Date(times[i]).getTime()<=now) iNow=i; else break;
+  }
+  if(iNow<1) return null;
+  const back=Math.max(0,iNow-6);
+  const cur=vals[iNow], past=vals[back];
+  if(cur==null||past==null) return null;
+  const delta=cur-past, hrs=iNow-back;
+  let word,meaning,effect;
+  if(delta<=-2.0){ word='falling fast'; effect=3;
+    meaning='A sharp drop means weather is coming. Fish very often feed hard in the hours ahead of a front — this is usually the best window you will get all week.'; }
+  else if(delta<=-0.7){ word='falling'; effect=2;
+    meaning='Slowly falling pressure tends to switch fish on. Worth getting out.'; }
+  else if(delta<0.7){ word='steady'; effect=0;
+    meaning='The glass is holding. Fish settle into normal patterns, so tide and light matter more than pressure today.'; }
+  else if(delta<2.0){ word='rising'; effect=-1;
+    meaning='Rising pressure usually follows a front through. Fish tend to drop deeper and get pickier for a while.'; }
+  else { word='rising fast'; effect=-2;
+    meaning='A sharp rise behind a front is the classic tough bite. Downsize your bait, slow everything down, and fish tight to cover.'; }
+  const series=[];
+  for(let i=back;i<=iNow;i++) if(vals[i]!=null) series.push(vals[i]);
+  return {cur,past,delta,hrs,word,meaning,effect,series};
+}
+
+/* Wind decides whether you can fish at all, and where. */
+function windRead(wx){
+  if(!wx||!wx.current) return null;
+  const c=wx.current, s=c.wind_speed_10m, g=c.wind_gusts_10m, d=c.wind_direction_10m;
+  if(s==null) return null;
+  let band,note,effect;
+  if(s<4){ band='glass calm'; effect=-1;
+    note='Barely a breath. The surface will be slick and fish spook easily — lighten the leader and lengthen your casts.'; }
+  else if(s<11){ band='light'; effect=2;
+    note='A light ripple is close to ideal. It hides your outline without making the boat hard to handle.'; }
+  else if(s<18){ band='moderate'; effect=1;
+    note='Workable. Fish the wind-blown bank if you can get to it — moving water stacks bait against the shoreline.'; }
+  else if(s<26){ band='strong'; effect=-2;
+    note='Hard work on open water. Stay in protected creeks, canals and backwaters.'; }
+  else { band='very strong'; effect=-3;
+    note='Small boats should stay off open water. Fish from shore or wait it out.'; }
+  return {speed:Math.round(s), gust:g==null?null:Math.round(g), dir:d, band, note, effect,
+          arrow:d==null?'':compass(d)};
+}
+
+/* ============================================================
+   BITE SCORE
+   One 0-100 number from the things that genuinely move a bite.
+   Every component is shown with its own contribution, so the score
+   can be argued with rather than merely believed.
+   ============================================================ */
+function biteScore(lat,lng,when,wx,tide){
+  const at=when||new Date();
+  const sol=solunar(lat,lng,at);
+  const parts=[];
+  let score=42;                      // an ordinary hour on ordinary water
+
+  const inWin=sol.periods.find(p=>at>=p.start&&at<=p.end);
+  if(inWin){
+    const v=inWin.kind==='major'?18:10;
+    score+=v; parts.push({k:'Feeding period',v,d:inWin.label+' — '+inWin.kind+' period'});
+  } else {
+    let best=null;
+    sol.periods.forEach(p=>{
+      const gap=Math.min(Math.abs(at-p.start),Math.abs(at-p.end));
+      if(!best||gap<best.gap) best={p,gap};
+    });
+    if(best&&best.gap<45*60000){ score+=5; parts.push({k:'Feeding period',v:5,d:'just outside a feeding window'}); }
+    else parts.push({k:'Feeding period',v:0,d:'no major or minor period running'});
+  }
+
+  const ph=sol.phase.phase;
+  const dm=Math.min(Math.abs(ph-0),Math.abs(ph-1),Math.abs(ph-0.5));
+  if(dm<0.05){ score+=8; parts.push({k:'Moon',v:8,d:phaseName(ph)+' — strongest tides of the month'}); }
+  else if(dm<0.12){ score+=4; parts.push({k:'Moon',v:4,d:phaseName(ph)+' — tides building'}); }
+  else parts.push({k:'Moon',v:0,d:phaseName(ph)});
+
+  const sr=sol.sun.rise, ss=sol.sun.set;
+  const nearT=(t,m)=>t&&Math.abs(at-t)<m*60000;
+  if(nearT(sr,75)||nearT(ss,75)){ score+=12; parts.push({k:'Light',v:12,d:'first or last light — the prime window most days'}); }
+  else if(sr&&ss&&(at<sr||at>ss)){ score+=4; parts.push({k:'Light',v:4,d:'after dark — good around lights and structure'}); }
+  else{
+    const noon=new Date(at); noon.setHours(13,0,0,0);
+    if(Math.abs(at-noon)<2.5*3600000){ score-=6; parts.push({k:'Light',v:-6,d:'harsh midday sun — fish hold deep or in shade'}); }
+    else parts.push({k:'Light',v:0,d:'ordinary daylight'});
+  }
+
+  const pt=pressureTrend(wx);
+  if(pt){ const v=pt.effect*4; score+=v;
+    parts.push({k:'Pressure',v,d:Math.round(pt.cur)+' mb, '+pt.word+' '+(pt.delta>=0?'+':'')+pt.delta.toFixed(1)+' mb in '+pt.hrs+'h'}); }
+
+  const w=windRead(wx);
+  if(w){ const v=w.effect*3; score+=v;
+    parts.push({k:'Wind',v,d:w.speed+' mph'+(w.arrow?' '+w.arrow:'')+' — '+w.band}); }
+
+  const ts=tideStage(tide);
+  if(ts){
+    const v = ts.strength==='strong'?10 : ts.strength==='moderate'?5 : -6;
+    score+=v; parts.push({k:'Tide',v,d:ts.label});
+  } else parts.push({k:'Tide',v:0,d:'no tide data for this water'});
+
+  score=Math.max(1,Math.min(100,Math.round(score)));
+  return {score, parts, sol, pt, wind:w, tide:ts, at};
+}
+
+/* Sequential magnitude ramp — validated monotonic in lightness and at
+   least 3.9:1 against the app's dark surface. The same ramp drives the
+   hourly bars and the verdict chip, because both encode one quantity. */
+const BITE_RAMP=['#1f8a72','#26a888','#2fc49e','#57dcb4','#8ff0cd'];
+function biteBand(s){
+  if(s>=78) return {t:'Prime', i:'●●●●', c:BITE_RAMP[4], idx:4};
+  if(s>=62) return {t:'Strong',i:'●●●',       c:BITE_RAMP[3], idx:3};
+  if(s>=46) return {t:'Fair',  i:'●●',             c:BITE_RAMP[2], idx:2};
+  if(s>=30) return {t:'Slow',  i:'●',                   c:BITE_RAMP[1], idx:1};
+  return      {t:'Tough', i:'○',                        c:BITE_RAMP[0], idx:0};
+}
+
+/* Score every hour of a day so the angler can pick a window. */
+function hourlyBite(lat,lng,wx,tide,dayOffset){
+  const base=new Date(); base.setHours(0,0,0,0);
+  if(dayOffset) base.setDate(base.getDate()+dayOffset);
+  const rows=[];
+  for(let h=0;h<24;h++){
+    const t=new Date(base.getTime()+h*3600000);
+    const s=biteScore(lat,lng,t,wx,tide).score;
+    rows.push({h,t,score:s,band:biteBand(s)});
+  }
+  return rows;
+}
+
+/* ============================================================
+   TODAY — the headline view
+   Charts follow the magnitude rule: one measure, one sequential
+   ramp, direct labels only where they earn their place, and a
+   hover layer because an HTML chart is interactive by nature.
+   ============================================================ */
+
+function todayHTML(){
+  const st=state||{};
+  if(st.lat==null) return '<div class="nod">Tap the map to get a forecast for that water.</div>';
+  const b=biteScore(st.lat,st.lng,new Date(),WX,st.tide);
+  const band=biteBand(b.score);
+  let h='';
+
+  /* ---- hero ---- */
+  h+=`<div class="hero">
+    <div class="heroTop">
+      <div>
+        <div class="heroLbl">Bite score now</div>
+        <div class="heroNum" style="color:${band.c}">${b.score}<span class="heroOf">/100</span></div>
+        <div class="heroBand" style="color:${band.c}">
+          <span class="heroDots" aria-hidden="true">${band.i}</span> ${band.t}
+        </div>
+      </div>
+      <div class="heroMoon">
+        <div class="hmIcon">${phaseEmoji(b.sol.phase.phase)}</div>
+        <div class="hmTxt">${esc(phaseName(b.sol.phase.phase))}<br>${Math.round(b.sol.phase.illum*100)}% lit</div>
+      </div>
+    </div>
+    <div class="heroWhy">${esc(biteSummary(b,band))}</div>
+  </div>`;
+
+  /* ---- condition strip ---- */
+  const c=WX&&WX.current;
+  const cells=[];
+  if(c){
+    const wd=wxDesc(c.weather_code);
+    cells.push(['Air', c.temperature_2m!=null?Math.round(c.temperature_2m)+'\u00B0':'\u2014', wd[1]]);
+    if(b.wind) cells.push(['Wind '+b.wind.arrow, b.wind.speed, '\uD83D\uDCA8']);
+    if(b.pt)   cells.push(['mb', Math.round(b.pt.cur), b.pt.delta<-0.2?'\u2193':b.pt.delta>0.2?'\u2191':'\u2192']);
+    if(c.cloud_cover!=null) cells.push(['Cloud', Math.round(c.cloud_cover)+'%', '\u2601\uFE0F']);
+  }
+  if(st.tide&&st.tide.temp) cells.push(['Water', Math.round(st.tide.temp)+'\u00B0', '\uD83C\uDF0A']);
+  cells.push(['Sunrise', fmtT(b.sol.sun.rise), '\uD83C\uDF05']);
+  cells.push(['Sunset', fmtT(b.sol.sun.set), '\uD83C\uDF07']);
+  if(cells.length) h+=`<div class="strip">`+cells.map(x=>
+      `<div class="stripCell"><div class="scIco">${x[2]}</div><div class="scVal">${esc(x[1])}</div><div class="scLbl">${esc(x[0])}</div></div>`
+    ).join('')+`</div>`;
+
+  if(WX_ERR) h+=`<div class="msg bad" style="margin-top:10px">Weather unavailable: ${esc(WX_ERR)}. Score is running on moon, light and tide alone.</div>`;
+  else if(!WX) h+=`<div class="nod" style="padding:8px 0"><span class="spin"></span>Loading weather…</div>`;
+
+  /* ---- hourly timeline ---- */
+  h+=hourlyChart(st);
+
+  /* ---- pressure ---- */
+  if(b.pt) h+=pressureCard(b.pt);
+
+  /* ---- wind ---- */
+  if(b.wind) h+=`<div class="panel">
+      <div class="pTitle">💨 Wind — ${esc(b.wind.speed+' mph '+b.wind.arrow)}${b.wind.gust?`, gusting ${b.wind.gust}`:''}</div>
+      <div class="pBody">${esc(b.wind.note)}</div>
+    </div>`;
+
+  /* ---- breakdown ---- */
+  h+=`<div class="panel">
+    <div class="pTitle">How that score was built</div>
+    <div class="pBody" style="margin-bottom:8px">Starting from an ordinary hour on ordinary water, then adjusted:</div>
+    ${b.parts.map(p=>`
+      <div class="bdRow">
+        <div class="bdK">${esc(p.k)}</div>
+        <div class="bdD">${esc(p.d)}</div>
+        <div class="bdV ${p.v>0?'up':p.v<0?'dn':'nil'}">${p.v>0?'+':''}${p.v||'0'}</div>
+      </div>`).join('')}
+    <div class="pFoot">Weighted from the factors anglers have relied on for decades — feeding periods, moon, light, barometric trend, wind and current. It is a guide to <i>when</i> to go, not a promise about what you will catch.</div>
+  </div>`;
+
+  /* ---- 7 day ---- */
+  h+=weekHTML(st);
+  return h;
+}
+
+function biteSummary(b,band){
+  const bits=[];
+  const top=b.parts.filter(p=>p.v>0).sort((x,y)=>y.v-x.v)[0];
+  const bot=b.parts.filter(p=>p.v<0).sort((x,y)=>x.v-y.v)[0];
+  if(band.idx>=3) bits.push('Conditions are lining up');
+  else if(band.idx===2) bits.push('An average window');
+  else bits.push('Not the best window');
+  if(top) bits.push('helped most by '+top.d.toLowerCase());
+  if(bot) bits.push('held back by '+bot.d.toLowerCase());
+  return bits.join(', ')+'.';
+}
+
+/* Hourly bars. One measure, so a sequential ramp and no legend —
+   the title names it. Rounded data-ends, 2px gaps, hover per bar. */
+function hourlyChart(st){
+  const rows=hourlyBite(st.lat,st.lng,WX,st.tide,state.dayOff||0);
+  const nowH=new Date().getHours();
+  const isToday=!(state.dayOff);
+  const best=rows.reduce((a,r)=>r.score>a.score?r:a,rows[0]);
+  // pad the plot box so edge labels and the current-hour ring are not clipped
+  const PAD=4, W=100, H=50, PW=W-PAD*2, n=rows.length;
+  const bw=PW/n, gap=Math.min(0.9,bw*0.22);
+  const bars=rows.map(r=>{
+    const hgt=Math.max(1.8,(r.score/100)*H);
+    const x=PAD+r.h*bw+gap/2, y=H-hgt, w=bw-gap;
+    const cur=isToday&&r.h===nowH;
+    return '<rect x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" width="'+w.toFixed(2)+'" height="'+hgt.toFixed(2)+
+      '" rx="'+Math.min(1.5,w/2).toFixed(2)+'" fill="'+r.band.c+'" class="hb"'+
+      (cur?' stroke="#eef4f8" stroke-width="0.6"':'')+
+      '><title>'+String(r.h).padStart(2,'0')+':00 — '+r.score+'/100, '+r.band.t+'</title></rect>';
+  }).join('');
+  const lab=[0,6,12,18,23];
+  const ticks=lab.map(i=>{
+    const cx=PAD+i*bw+bw/2;
+    const anchor=i===0?'start':i===23?'end':'middle';
+    const x=i===0?PAD:i===23?W-PAD:cx;
+    const t=i===0?'12a':i===12?'12p':i>12?(i-12)+'p':i+'a';
+    return '<text x="'+x.toFixed(2)+'" y="'+(H+6)+'" class="hbx" text-anchor="'+anchor+'">'+t+'</text>';
+  }).join('');
+  return '<div class="panel">'+
+    '<div class="pTitle">Hour by hour'+(isToday?' today':' tomorrow')+
+      '<button class="pSwap" onclick="setDayOff('+(isToday?1:0)+')">'+(isToday?'tomorrow \u203A':'\u2039 today')+'</button></div>'+
+    '<div class="chartWrap"><svg viewBox="0 0 '+W+' '+(H+9)+'" preserveAspectRatio="none" class="hchart" role="img" '+
+      'aria-label="Bite score for each hour'+(isToday?' today':' tomorrow')+', peak '+best.score+' out of 100 at '+best.h+':00">'+
+      '<line x1="'+PAD+'" y1="'+H+'" x2="'+(W-PAD)+'" y2="'+H+'" class="hbase"/>'+bars+ticks+
+    '</svg></div>'+
+    '<div class="pBody">Best window '+(isToday?'today':'tomorrow')+' is <b style="color:'+best.band.c+'">'+
+      String(best.h).padStart(2,'0')+':00</b> at '+best.score+'/100 ('+best.band.t.toLowerCase()+
+      '). Tap a bar for its exact score.</div></div>';
+}
+
+function setDayOff(d){ state.dayOff=d; render(); }
+
+/* Pressure over the last six hours. One line, one series, no legend. */
+function pressureCard(pt){
+  const s=pt.series;
+  if(!s||s.length<2) return '';
+  const min=Math.min(...s), max=Math.max(...s), span=Math.max(0.6,max-min);
+  // inset the plot so the stroke and the end dot cannot clip on any edge
+  const W=100,H=26,PX=3,PY=4, PW=W-PX*2, PH=H-PY*2;
+  const pts=s.map((v,i)=>[PX+(i/(s.length-1))*PW, PY+PH-((v-min)/span)*PH]);
+  const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');
+  const last=pts[pts.length-1];
+  const col=pt.effect>0?BITE_RAMP[4]:pt.effect<0?'#fab219':'#9db2c4';
+  return '<div class="panel">'+
+    '<div class="pTitle">Barometric pressure \u2014 '+esc(pt.word)+'</div>'+
+    '<div class="sparkRow">'+
+      '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" class="spark" role="img" '+
+        'aria-label="Surface pressure over the last '+pt.hrs+' hours, '+esc(pt.word)+
+        ', '+(pt.delta>=0?'up ':'down ')+Math.abs(pt.delta).toFixed(1)+' millibars">'+
+        '<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>'+
+        '<circle cx="'+last[0].toFixed(2)+'" cy="'+last[1].toFixed(2)+'" r="1.8" fill="'+col+'" stroke="#0e1f2e" stroke-width="0.7"/>'+
+      '</svg>'+
+      '<div class="sparkNum"><div class="snV" style="color:'+col+'">'+(pt.delta>=0?'+':'')+pt.delta.toFixed(1)+'</div>'+
+      '<div class="snL">mb / '+pt.hrs+'h</div></div>'+
+    '</div>'+
+    '<div class="pBody">'+esc(pt.meaning)+'</div>'+
+    '<div class="pFoot">Now '+Math.round(pt.cur)+' mb, was '+Math.round(pt.past)+' mb '+pt.hrs+' hours ago.</div></div>';
+}
+
+/* Seven-day outlook. */
+function weekHTML(st){
+  if(!WX||!WX.daily||!WX.daily.time) return '';
+  const D=WX.daily, days=D.time||[];
+  if(!days.length) return '';
+  let h=`<div class="panel"><div class="pTitle">Next seven days</div><div class="week">`;
+  days.slice(0,7).forEach((dt,i)=>{
+    const date=new Date(dt+'T12:00:00');
+    const off=Math.round((date-new Date(new Date().setHours(12,0,0,0)))/DAYMS);
+    const rows=hourlyBite(st.lat,st.lng,WX,st.tide,off);
+    const peak=rows.reduce((a,r)=>r.score>a.score?r:a,rows[0]);
+    const wd=wxDesc(D.weather_code?D.weather_code[i]:null);
+    const nm=i===0?'Today':date.toLocaleDateString([],{weekday:'short'});
+    return h+=`<div class="wDay">
+      <div class="wName">${esc(nm)}</div>
+      <div class="wIco" title="${esc(wd[0])}">${wd[1]}</div>
+      <div class="wBar"><span style="height:${Math.max(8,peak.score)}%;background:${peak.band.c}"></span></div>
+      <div class="wScore" style="color:${peak.band.c}">${peak.score}</div>
+      <div class="wTemp">${D.temperature_2m_max?Math.round(D.temperature_2m_max[i])+'°':''}</div>
+    </div>`;
+  });
+  h+=`</div><div class="pFoot">Peak bite score for each day, from moon and light. Pressure and wind only shift the nearest days — further out, treat it as the moon and sun picture rather than a weather call.</div></div>`;
+  return h;
+}
+
+/* ============================================================
+   LAYERS SHEET
+   Nine buttons stacked down the edge of the map was worse than the
+   apps I was criticising. Three stay on the map; everything else
+   lives in one sheet with room to say what each layer is for.
+   ============================================================ */
+function layerRow(id,icon,title,desc,active,fn){
+  return '<button class="lyRow'+(active?' on':'')+'" onclick="'+fn+'">'+
+    '<div class="lyIco">'+icon+'</div>'+
+    '<div class="lyTxt"><div class="lyT">'+esc(title)+'</div><div class="lyD">'+esc(desc)+'</div></div>'+
+    '<div class="lyChk">'+(active?'✓':'')+'</div></button>';
+}
+
+function openLayers(){
+  const satOn=(typeof baseSat!=='undefined')&&map.hasLayer(baseSat);
+  openModal(
+    '<div class="mtitle">Map layers</div>'+
+    '<div class="msub">Base map, plus the overlays worth having on the water.</div>'+
+
+    '<div class="lySec">Base</div>'+
+    layerRow('map','🌑','Dark map','Street and water outlines, easy on the eyes before dawn.',!satOn,"pickBase('map')")+
+    layerRow('sat','🛰️','Satellite','Aerial imagery — read grass flats, bars and channel edges.',satOn,"pickBase('sat')")+
+    (satOn?'':'<div class="lyAlt"><div class="lyAltT">Dark map source</div>'+
+      BASE_SOURCES.map((s,i)=>'<button class="lyPill'+(i===baseIdx?' on':'')+'" onclick="setBaseSource('+i+')">'+esc(s.n)+'</button>').join('')+
+      '<div class="lyD" style="margin-top:7px">If the map looks blank or wrong, pick another source. The last one inverts standard OpenStreetMap, so it always works.</div></div>')+
+
+    '<div class="lySec">Overlays</div>'+
+    layerRow('depth','🌊','Depth contours','Official nautical chart: soundings and contour lines.',depthOn,'toggleDepth();closeModal()')+
+    layerRow('radar','🌧️','Rain radar','Live precipitation — see the squall before it reaches you.',radarOn,'toggleRadar();closeModal()')+
+    layerRow('shop','🪱','Bait & ramps','Tackle shops, marinas and boat ramps near the map centre.',shopsOn,'toggleShops();closeModal()')+
+
+    '<div class="lySec">Mine</div>'+
+    layerRow('savenew','➕','Save this spot','Mark the water you are on, with notes only you can see.',false,'closeModal();openSaveSpot()')+
+    layerRow('save','📌','Saved spots','Your private waypoints and notes.',false,'closeModal();showMySpots()')+
+
+    '<button class="btn alt" onclick="closeModal()">Done</button>'+
+    '<button class="linky" onclick="runDiagnostics();closeModal()">Run a connection test</button>'
+  );
+}
+
+function pickBase(k){ setBase(k); openLayers(); }
+
+/* ============================================================
+   RAIN RADAR  (RainViewer — free, no key)
+   Windy's animated wind field needs a paid tile key, so this shows
+   live precipitation instead: for fishing, seeing the squall coming
+   is the more useful of the two, and wind already appears as data.
+   ============================================================ */
+let radarLayer=null, radarOn=false, radarFrames=null, radarLegend=null;
+
+async function radarFrame(){
+  if(radarFrames) return radarFrames;
+  const d=await getJSON('https://api.rainviewer.com/public/weather-maps.json',15000);
+  const past=(d&&d.radar&&d.radar.past)||[];
+  if(!past.length) throw new Error('radar returned no frames');
+  radarFrames={host:d.host||'https://tilecache.rainviewer.com', frame:past[past.length-1]};
+  return radarFrames;
+}
+
+async function toggleRadar(){
+  const btn=document.getElementById('b-radar');
+  if(radarOn){
+    if(radarLayer) map.removeLayer(radarLayer);
+    if(radarLegend){ radarLegend.remove(); radarLegend=null; }
+    radarOn=false; btn.classList.remove('on');
+    return;
+  }
+  btn.classList.add('on'); btn.innerHTML='⏳';
+  try{
+    const f=await radarFrame();
+    if(radarLayer) map.removeLayer(radarLayer);
+    radarLayer=L.tileLayer(f.host+f.frame.path+'/256/{z}/{x}/{y}/2/1_1.png',
+      {opacity:0.62, maxZoom:14, attribution:'RainViewer'});
+    radarLayer.addTo(map);
+    radarOn=true;
+    btn.innerHTML='\u{1F327}️<span class="lw"> Radar</span>';
+    radarLegend=L.control({position:'bottomright'});
+    radarLegend.onAdd=function(){
+      const el=L.DomUtil.create('div','dlegend');
+      const age=Math.round((Date.now()/1000-f.frame.time)/60);
+      el.innerHTML='<div class="dlt">Rain radar</div>'+
+        '<div class="dlr">Live precipitation. Heavier colour means heavier rain.</div>'+
+        '<div class="dlnote">Frame is '+age+' min old. A squall line crossing your water usually'+
+        ' means a pressure drop just ahead of it — often the best short window of the day,'+
+        ' but get off the water before the lightning arrives.</div>';
+      L.DomEvent.disableClickPropagation(el);
+      return el;
+    };
+    radarLegend.addTo(map);
+  }catch(e){
+    radarOn=false; btn.classList.remove('on');
+    btn.innerHTML='\u{1F327}️<span class="lw"> Radar</span>';
+    openModal('<div class="mtitle">Radar unavailable</div>'+
+      '<div class="msub">'+esc(e.message||'network error')+'</div>'+
+      '<button class="btn" onclick="closeModal()">OK</button>');
+  }
+}
+
+/* ============================================================
+   SAVED SPOTS
+   Private by design. The Supabase spots table is owner-only at the
+   database level, so a saved spot is never visible to anyone else.
+   Signed out, it lives on this device only.
+   ============================================================ */
+let MYSPOTS=null, spotSaveLayer=null;
+
+function localSpots(){
+  try{ return JSON.parse(localStorage.getItem('bc_spots')||'[]'); }catch(e){ return []; }
+}
+function setLocalSpots(a){
+  try{ localStorage.setItem('bc_spots',JSON.stringify(a.slice(0,200))); }catch(e){}
+}
+
+async function loadMySpots(){
+  if(sb&&ME){
+    try{
+      const {data,error}=await sb.from('spots').select('*').order('created_at',{ascending:false});
+      if(error) throw error;
+      MYSPOTS=(data||[]).map(s=>({...s,remote:true}));
+      return MYSPOTS;
+    }catch(e){ console.warn('spots load failed:',e.message); }
+  }
+  MYSPOTS=localSpots();
+  return MYSPOTS;
+}
+
+function openSaveSpot(){
+  const st=state||{};
+  if(st.lat==null) return openModal(`<div class="mtitle">Pick a spot first</div>
+    <div class="msub">Tap the map where you want to save, then save it.</div>
+    <button class="btn" onclick="closeModal()">OK</button>`);
+  openModal(`
+    <div class="mtitle">Save this spot</div>
+    <div class="msub">📍 ${esc(st.name||'this water')} · ${st.lat.toFixed(4)}, ${st.lng.toFixed(4)}<br>
+      Saved spots are private to you${ME?'':' and stored on this device until you sign in'}.</div>
+    <div id="formmsg"></div>
+    <div class="fld"><label>Name it</label>
+      <input id="spn" placeholder="the dock light, second bar, oyster point…" autocapitalize="words"></div>
+    <div class="fld"><label>Notes</label>
+      <textarea id="spnote" placeholder="what works here, which tide, what you have caught"></textarea></div>
+    <button class="btn" id="spgo" onclick="doSaveSpot()">Save spot</button>
+    <button class="btn alt" onclick="showMySpots()">See my saved spots</button>
+  `);
+}
+
+async function doSaveSpot(){
+  const st=state||{};
+  const name=(document.getElementById('spn').value||'').trim();
+  if(!name) return setMsg('Give it a name so you recognise it later.');
+  const notes=(document.getElementById('spnote').value||'').trim()||null;
+  const b=document.getElementById('spgo'); b.disabled=true; b.textContent='Saving…';
+  const rec={name, lat:st.lat, lng:st.lng, notes,
+             water:st.name||null, created_at:new Date().toISOString()};
+  try{
+    if(sb&&ME){
+      // `water` needs the v21 migration; retry without it so an un-migrated
+      // database still saves the spot rather than failing outright
+      let {error}=await sb.from('spots')
+        .insert({user_id:ME.id,name,lat:st.lat,lng:st.lng,notes,water:st.name||null});
+      if(error && /water/i.test(error.message||'')){
+        console.warn('spots.water column missing — run the v21 migration; saving without it');
+        ({error}=await sb.from('spots').insert({user_id:ME.id,name,lat:st.lat,lng:st.lng,notes}));
+      }
+      if(error) throw error;
+    } else {
+      const a=localSpots(); a.unshift({...rec,id:'l'+Date.now()}); setLocalSpots(a);
+    }
+    MYSPOTS=null;
+    await loadMySpots();
+    showMySpots();
+  }catch(e){
+    b.disabled=false; b.textContent='Save spot';
+    setMsg(e.message||'Could not save that spot.');
+  }
+}
+
+async function showMySpots(){
+  openModal(`<div class="mtitle">My spots</div>
+    <div class="msub"><span class="spin"></span>Loading…</div>`);
+  const list=await loadMySpots();
+  const rows=(list||[]).map((s,i)=>`
+    <button class="slrow" onclick="gotoSpot(${i})">
+      <div class="slic">📌</div>
+      <div style="flex:1;min-width:0">
+        <div class="slname">${esc(s.name)}</div>
+        <div class="slsub">${s.water?esc(s.water)+' · ':''}${(+s.lat).toFixed(3)}, ${(+s.lng).toFixed(3)}${s.remote?'':' <span class="chip">this device</span>'}</div>
+      </div><div class="arrow">›</div>
+    </button>`).join('');
+  openModal(`
+    <div class="mtitle">My spots</div>
+    <div class="msub">${(list&&list.length)||0} saved${ME?' to your account':' on this device'}.
+      ${ME?'Private to you — the database enforces that, not just the app.':'Sign in to keep them across devices.'}</div>
+    ${rows||'<div class="nod">Nothing saved yet. Tap the map, then ＋ Save spot.</div>'}
+    <button class="btn" onclick="closeModal();openSaveSpot()">Save the current spot</button>
+    <button class="btn alt" onclick="closeModal()">Close</button>
+  `);
+}
+
+function gotoSpot(i){
+  const s=MYSPOTS&&MYSPOTS[i]; if(!s) return;
+  closeModal();
+  map.setView([+s.lat,+s.lng],15);
+  lookup(+s.lat,+s.lng);
+  if(s.notes) setTimeout(()=>openModal(`<div class="mtitle">📌 ${esc(s.name)}</div>
+    <div class="msub">${esc(s.water||'')}</div>
+    <div class="panel"><div class="pBody">${esc(s.notes)}</div></div>
+    <button class="btn alt" onclick="closeModal()">Close</button>`),900);
+}
+
+/* ============================================================
+   SPOT FINDER
+   Ranks real mapped structure against the conditions happening right
+   now. Every recommendation states its reasoning, because "fish here"
+   with no reason is worth nothing to someone learning.
+   ============================================================ */
+
+/* What each kind of structure is, and when it actually turns on.
+   tide:  which stage switches it on   sun: which light switches it on
+   Written from standard inshore angling practice, not invented. */
+const STRUCTURE = {
+  inlet:    {icon:'🌊', label:'Pass / inlet', base:9, tide:'falling', sun:'any',
+    why:'A pass funnels every bit of water leaving the bay through one narrow gap. Bait has no choice but to ride it out, and predators sit in the edges waiting.',
+    how:'Anchor or drift the edge of the main current, not the middle. Cast up-current and let the bait wash down naturally with the flow.',
+    species:['snook','tarpon','redfish','jack']},
+  creekmouth:{icon:'🏞️', label:'Creek mouth', base:9, tide:'falling', sun:'any',
+    why:'A draining creek flushes shrimp, crabs and small baitfish out of the back country. Fish stack up at the mouth and let dinner come to them.',
+    how:'Sit off the mouth, stay quiet, and cast into the outflow. Work the seam where moving water meets still water.',
+    species:['snook','redfish','seatrout','tarpon']},
+  bridge:   {icon:'🌉', label:'Bridge', base:8, tide:'moving', sun:'night',
+    why:'Pilings break the current and create slack pockets. At night the light line on the water is a wall that bait cannot cross unseen.',
+    how:'Cast up-current of a piling and drift past it. After dark, work the dark edge of the light line, never the bright middle.',
+    species:['snook','tarpon','mangrovesnapper','sheepshead']},
+  point:    {icon:'📍', label:'Point / bar', base:8, tide:'moving', sun:'lowlight',
+    why:'A point forces current around it and creates an eddy on the down-current side. Fish hold in that slack and ambush anything sweeping past.',
+    how:'Work the down-current side first. Fan cast across the tip before moving in closer.',
+    species:['redfish','seatrout','snook']},
+  mangrove: {icon:'🌿', label:'Mangrove shoreline', base:8, tide:'high', sun:'any',
+    why:'Roots are nursery and pantry at once. On a high tide fish push right up under the overhang where almost nobody can reach them.',
+    how:'Skip baits back under the branches. Expect to lose tackle — the fish that live there are the reason.',
+    species:['snook','redfish','mangrovesnapper','jack']},
+  flat:     {icon:'🏖️', label:'Grass flat', base:7, tide:'incoming', sun:'lowlight',
+    why:'Turtle grass holds shrimp and crabs. As water floods the flat, fish move up to feed and often show themselves tailing in inches of water.',
+    how:'Sight fish it. Move slowly, stay off the poling platform noise, and lead the fish by several feet.',
+    species:['redfish','seatrout','permit','bonefish']},
+  dock:     {icon:'🛳️', label:'Dock / marina', base:7, tide:'moving', sun:'night',
+    why:'Pilings, shade and — after dark — lights that pull bait in like a magnet. A lit dock is a dinner bell.',
+    how:'Cast past the light and bring the bait through the shadow edge. Fish sit in the dark and eat what drifts into the glow.',
+    species:['snook','mangrovesnapper','sheepshead','seatrout']},
+  jetty:    {icon:'🧱', label:'Jetty / rocks', base:8, tide:'moving', sun:'any',
+    why:'Rock holds barnacles and crabs, and breaks current into pockets. It is structure, food and shelter stacked together.',
+    how:'Work parallel to the rocks rather than straight out. Keep the bait close — most bites come within a few feet of the stone.',
+    species:['sheepshead','redfish','snook','mangrovesnapper']},
+  reef:     {icon:'🪸', label:'Reef / hard bottom', base:8, tide:'any', sun:'any',
+    why:'Hard bottom in a sand desert. Everything from bait to apex predators relates to it because there is nothing else around.',
+    how:'Anchor up-current and let a chum line drift back over it, or drop straight down and work just off the bottom.',
+    species:['mangrovesnapper','grouper','cuda','kingfish']},
+  shoal:    {icon:'⛰️', label:'Shoal / sandbar', base:7, tide:'moving', sun:'lowlight',
+    why:'A bar is a depth change, and depth changes are where fish hunt. Bait sweeping over the top drops into the trough behind it.',
+    how:'Fish the deep side of the bar, casting up onto the shallow top and dragging the bait over the edge.',
+    species:['redfish','seatrout','flounder','pompano']},
+  marker:   {icon:'🚩', label:'Channel marker', base:6, tide:'moving', sun:'any',
+    why:'A marker sits on the line between channel and shallows — a permanent depth edge, with a piling for structure.',
+    how:'Cast to the base of the marker and work the drop-off away from it.',
+    species:['mangrovesnapper','seatrout','jack']},
+  pier:     {icon:'🎣', label:'Fishing pier', base:7, tide:'moving', sun:'any',
+    why:'Reaches past the breakers into deeper water, with pilings holding bait the whole way out. Shore access without a boat.',
+    how:'Fish the end for pelagics, the pilings for structure feeders. Watch which way the current runs and cast up into it.',
+    species:['spanish','pompano','snook','sheepshead']},
+  ramp:     {icon:'🛥️', label:'Boat ramp', base:3, tide:'any', sun:'any',
+    why:'Access point rather than a spot. Useful for getting on the water near everything else on this list.',
+    how:'Launch here and work the structure nearby.',
+    species:[]}
+};
+
+/* Where in the tide cycle are we right now, and how hard is water moving? */
+function tideStage(tide){
+  if(!tide||!tide.preds||!tide.preds.length) return null;
+  const now=new Date();
+  const next=tide.preds.find(p=>p.t>=now);
+  const prevs=tide.preds.filter(p=>p.t<now);
+  const prev=prevs.length?prevs[prevs.length-1]:null;
+  if(!next) return null;
+  const minsTo=Math.round((next.t-now)/60000);
+  const dir = next.hi ? 'incoming' : 'falling';
+  let strength='moderate', phase='mid';
+  if(prev){
+    const span=(next.t-prev.t)/60000;
+    const through=1-(minsTo/span);          // 0 at last turn, 1 at next turn
+    if(through<0.25||through>0.85){ strength='slack'; phase= through>0.85?'late':'early'; }
+    else if(through>=0.35&&through<=0.65){ strength='strong'; phase='mid'; }
+    else { phase = through<0.5?'early':'late'; }
+  }
+  return {dir,strength,phase,minsTo,next,
+    label:`${dir} tide, ${strength==='slack'?'near slack water':strength+' flow'}`};
+}
+
+/* Pull real mapped structure around a point. */
+async function fetchSpots(lat,lng,radiusM){
+  const r=radiusM||12000, ll=`${lat.toFixed(5)},${lng.toFixed(5)}`;
+  const q=`[out:json][timeout:30];(`+
+    `nwr(around:${r},${ll})["natural"="strait"];`+
+    `nwr(around:${r},${ll})["natural"="cape"];`+
+    `nwr(around:${r},${ll})["natural"="reef"];`+
+    `nwr(around:${r},${ll})["natural"="shoal"];`+
+    `nwr(around:${r},${ll})["natural"="wetland"]["wetland"~"mangrove|tidalflat"];`+
+    `nwr(around:${r},${ll})["man_made"="pier"];`+
+    `nwr(around:${r},${ll})["man_made"~"breakwater|groyne"];`+
+    `nwr(around:${r},${ll})["leisure"="marina"];`+
+    `nwr(around:${r},${ll})["leisure"="slipway"];`+
+    `nwr(around:${r},${ll})["leisure"="fishing"];`+
+    `way(around:${r},${ll})["bridge"]["highway"];`+
+    `node(around:${r},${ll})["seamark:type"~"buoy_lateral|beacon_lateral"];`+
+    `);out tags center 200;`;
+  const d=await overpass(q);
+  const out=[];
+  (d.elements||[]).forEach(e=>{
+    const t=e.tags||{};
+    const c=e.center||(e.lat!=null?{lat:e.lat,lon:e.lon}:null);
+    if(!c) return;
+    let k=null;
+    if(t.natural==='strait') k='inlet';
+    else if(t.natural==='cape') k='point';
+    else if(t.natural==='reef') k='reef';
+    else if(t.natural==='shoal') k='shoal';
+    else if(t.wetland==='mangrove') k='mangrove';
+    else if(t.wetland==='tidalflat') k='flat';
+    else if(t.man_made==='pier') k = /fish/i.test(t.name||'') ? 'pier' : 'dock';
+    else if(t.man_made==='breakwater'||t.man_made==='groyne') k='jetty';
+    else if(t.leisure==='marina') k='dock';
+    else if(t.leisure==='slipway') k='ramp';
+    else if(t.leisure==='fishing') k='pier';
+    else if(t.bridge&&t.highway) k='bridge';
+    else if(t['seamark:type']) k='marker';
+    if(!k) return;
+    out.push({ id:(e.type||'n')+e.id, kind:k, name:t.name||null,
+      lat:c.lat, lng:c.lon, tags:t,
+      dist:haversineKm(lat,lng,c.lat,c.lon) });
+  });
+  // creek mouths: a named waterway running close to the tapped water
+  return dedupeSpots(out);
+}
+
+/* OSM maps long features as many segments; collapse near-identical hits. */
+function dedupeSpots(list){
+  const keep=[];
+  list.sort((a,b)=>a.dist-b.dist).forEach(s=>{
+    if(keep.some(k=>k.kind===s.kind && haversineKm(k.lat,k.lng,s.lat,s.lng)<0.45)) return;
+    keep.push(s);
+  });
+  return keep;
+}
+
+/* Score a spot against what the water and sky are doing right now. */
+function scoreSpot(s,ctx){
+  const st=STRUCTURE[s.kind]; if(!st) return null;
+  let score=st.base;
+  const reasons=[], against=[];
+  // Set when the one condition this structure depends on is actively wrong.
+  // Other bonuses must never be able to paper over that.
+  let mismatch=false;
+
+  // --- tide match ---
+  if(ctx.tide){
+    const T=ctx.tide;
+    if(st.tide==='falling'){
+      if(T.dir==='falling'&&T.strength!=='slack'){ score+=3; reasons.push(`the tide is falling with ${T.strength} flow, which is exactly when this spot works`); }
+      else if(T.dir==='falling'){ score+=1; reasons.push('the tide is falling, though flow is near slack'); }
+      else { score-=3; mismatch=true; against.push('it really wants a falling tide, and water is currently coming in'); }
+    } else if(st.tide==='incoming'){
+      if(T.dir==='incoming'&&T.strength!=='slack'){ score+=3; reasons.push('water is pushing in, flooding the shallows and bringing fish up with it'); }
+      else if(T.dir==='incoming'){ score+=1; reasons.push('water is starting to push in'); }
+      else { score-=3; mismatch=true; against.push('it fishes best on an incoming tide, and water is currently draining'); }
+    } else if(st.tide==='high'){
+      if(T.dir==='incoming'&&T.phase==='late'){ score+=3; reasons.push('the tide is near the top, so fish can get right up into the roots'); }
+      else if(T.dir==='incoming'){ score+=2; reasons.push('the tide is building toward high water'); }
+      else if(T.dir==='falling'&&T.phase==='early'){ score+=1; reasons.push('water is high but starting to drop, which pulls fish back out of the cover'); }
+      else { score-=3; mismatch=true; against.push('the water is low, so there may not be enough of it up in the cover'); }
+    } else if(st.tide==='moving'){
+      if(T.strength==='strong'){ score+=3; reasons.push('water is moving hard, and this spot needs current to fish well'); }
+      else if(T.strength==='moderate'){ score+=2; reasons.push('there is decent current running'); }
+      else { score-=3; mismatch=true; against.push('the tide is near slack, so there is little current to work with'); }
+    }
+  }
+
+  // --- light match ---
+  if(st.sun==='night'&&ctx.dark){ score+=3; reasons.push('it is dark, which is when this spot comes alive'); }
+  else if(st.sun==='night'&&!ctx.dark){ score-=2; against.push('it is a great deal better after dark'); }
+  if(st.sun==='lowlight'&&ctx.lowlight){ score+=2; reasons.push('low light right now — prime window for sight feeding'); }
+
+  // --- solunar overlap ---
+  if(ctx.solActive){ score+=2; reasons.push(`a ${ctx.solActive} feeding period is running right now`); }
+
+  // --- distance: a great spot an hour away is not a great spot today ---
+  if(s.dist<3) score+=1;
+  else if(s.dist>12) score-=3;
+  else if(s.dist>8)  score-=2;
+  else if(s.dist>5)  score-=1;
+
+  // --- species overlap with what is actually recorded nearby ---
+  const hits=(st.species||[]).filter(k=>ctx.localKeys.has(k));
+  if(hits.length>=2){ score+=1; reasons.push('species recorded near here line up with what this structure holds'); }
+
+  return {...s, st, score, reasons, against, hits, mismatch};
+}
+
+/* A spot whose defining condition is wrong can never be called prime, no
+   matter how many secondary bonuses it collects. Saying "Prime right now"
+   about a creek mouth on a rising tide would just be a lie with a colour. */
+function bandFor(score,mismatch){
+  if(mismatch) return score>=10
+    ? {t:'Wrong tide for it', c:'#b08a2e', k:'ok'}
+    : {t:'Off-peak', c:'#8b95a1', k:'off'};
+  if(score>=13) return {t:'Prime right now', c:'#0a8f5f', k:'prime'};
+  if(score>=10) return {t:'Good right now',  c:'#4a9d3f', k:'good'};
+  if(score>=7)  return {t:'Worth a look',    c:'#b08a2e', k:'ok'};
+  return {t:'Off-peak', c:'#8b95a1', k:'off'};
+}
+
+let SPOTS=null, SPOTS_ERR=null, spotLayer=null;
+
+async function loadSpots(){
+  const st=state||{};
+  if(st.lat==null) return;
+  SPOTS_ERR=null; SPOTS=null;
+  if(state.tab==='spots') render();
+  try{
+    const raw=await fetchSpots(st.lat,st.lng,12000);
+    const ctx=spotContext();
+    // spots whose defining condition is wrong sink below every spot whose isn't
+    SPOTS=raw.map(s=>scoreSpot(s,ctx)).filter(Boolean)
+             .sort((a,b)=>(a.mismatch?1:0)-(b.mismatch?1:0) || b.score-a.score)
+             .slice(0,20);
+    paintSpotPins();
+  }catch(e){
+    SPOTS_ERR=e.message||'could not load structure';
+    SPOTS=[];
+  }
+  if(state.tab==='spots') render();
+}
+
+/* Everything the scorer needs to know about right now. */
+function spotContext(){
+  const st=state||{};
+  const sol=solunar(st.lat,st.lng);
+  const now=new Date();
+  const sr=sol.sun.rise, ss=sol.sun.set;
+  const dark = (sr&&ss) ? (now<sr||now>ss) : (now.getHours()<6||now.getHours()>20);
+  const near=(t)=>t&&Math.abs(now-t)<75*60000;
+  const lowlight = near(sr)||near(ss);
+  const active=sol.periods.find(p=>p.active);
+  const localKeys=new Set();
+  (st.counts||[]).forEach(c=>{
+    const n=c.taxon&&(c.taxon.preferred_common_name||c.taxon.name);
+    const k=n?ALIAS[n.toLowerCase().trim()]:null;
+    if(k) localKeys.add(k);
+  });
+  if(st.offline&&st.fallbackSp) st.fallbackSp.forEach(k=>localKeys.add(k));
+  return {tide:tideStage(st.tide), dark, lowlight,
+          solActive:active?(active.kind==='major'?'major':'minor'):null,
+          localKeys, sol};
+}
+
+function paintSpotPins(){
+  if(spotLayer) map.removeLayer(spotLayer);
+  if(!SPOTS||!SPOTS.length) return;
+  spotLayer=L.layerGroup();
+  SPOTS.slice(0,12).forEach((s,i)=>{
+    const b=bandFor(s.score,s.mismatch);
+    L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',iconSize:[28,28],iconAnchor:[14,14],
+      html:`<div style="width:28px;height:28px;border-radius:50%;background:${b.c};border:2px solid #fff;
+        box-shadow:0 1px 6px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;
+        font-size:13px">${s.st.icon}</div>`})})
+      .on('click',()=>openSpot(i)).addTo(spotLayer);
+  });
+  spotLayer.addTo(map);
+}
+
+function spotsHTML(){
+  const st=state||{};
+  if(st.lat==null) return `<div class="nod">Tap the map first, then Bitecast can rank the structure around that spot against the tide and light right now.</div>`;
+  let h='';
+  const ctx=spotContext();
+  const bits=[];
+  if(ctx.tide) bits.push('🌊 '+ctx.tide.label);
+  bits.push(ctx.dark?'🌙 after dark':ctx.lowlight?'🌅 low light':'☀️ daylight');
+  if(ctx.solActive) bits.push('🎣 '+ctx.solActive+' feeding period running');
+  h+=`<div class="sctx">${bits.map(b=>esc(b)).join(' · ')}</div>`;
+  h+=`<div class="hint">Structure within 7 miles, ranked against those conditions. Every spot says why it made the list — and why it might not be the one today.</div>`;
+
+  if(SPOTS_ERR) h+=msg('Could not load structure: '+SPOTS_ERR);
+  if(SPOTS===null) return h+`<div class="nod"><span class="spin"></span>Reading the structure around here…</div>`;
+  if(!SPOTS.length) return h+`<div class="nod">No mapped structure within 7 miles. OpenStreetMap is thin in rural areas — try tapping nearer a pass, bridge or developed shoreline.</div>`;
+
+  SPOTS.forEach((s,i)=>{
+    const b=bandFor(s.score,s.mismatch);
+    h+=`<div class="card">
+      <div class="chead" onclick="tog(this)">
+        <div class="slic" style="background:${b.c}22">${s.st.icon}</div>
+        <div style="flex:1;min-width:0;text-align:left">
+          <div class="slname">${esc(s.name||s.st.label)}</div>
+          <div class="slsub">${esc(s.st.label)} · ${mi(s.dist)} mi
+            <span class="ob" style="background:${b.c}1f;color:${b.c}">${b.t}</span></div>
+        </div><div class="arrow">▼</div>
+      </div>
+      <div class="det">${spotDetail(s,b)}</div>
+    </div>`;
+  });
+  h+=`<div class="foot">Structure from OpenStreetMap. Ranking is a reading of tide stage, daylight and feeding periods against how each kind of structure normally fishes — it is a starting point, not a guarantee. Local knowledge beats it every time.</div>`;
+  return h;
+}
+
+function spotDetail(s,b){
+  let h='';
+  h+=`<div class="whyblk" style="border-left-color:${b.c}">
+        <div class="whyt" style="color:${b.c}">${b.t}</div>`;
+  if(s.reasons.length){
+    h+=`<div class="whyl">Because ${s.reasons.map(r=>esc(r)).join('; and ')}.</div>`;
+  } else {
+    h+=`<div class="whyl">Nothing in the current conditions is pushing this one up or down.</div>`;
+  }
+  if(s.against.length){
+    h+=`<div class="whyl agn">Working against it: ${s.against.map(r=>esc(r)).join('; ')}.</div>`;
+  }
+  h+=`</div>`;
+  h+=`<div class="lbl">Why fish hold here</div><div class="sbval">${esc(s.st.why)}</div>`;
+  h+=`<div class="lbl">How to fish it</div><div class="sbval">${esc(s.st.how)}</div>`;
+  if(s.hits.length){
+    const names=s.hits.map(k=>{
+      const a=Object.keys(ALIAS).find(x=>ALIAS[x]===k)||k;
+      return titleCase(a);
+    });
+    h+=`<div class="lbl">Recorded near here</div>
+        <div>${names.map(n=>`<span class="chip">${esc(n)}</span>`).join('')}</div>
+        <div class="hint2">These are species with verified records nearby that also relate to this kind of structure.</div>`;
+  }
+  h+=`<div class="row2" style="margin-top:10px">
+      <button class="btn alt" onclick="map.setView([${s.lat},${s.lng}],15);closeModal()">Show on map</button>
+      <a class="btn alt" style="text-align:center;text-decoration:none;display:block"
+         href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}"
+         target="_blank" rel="noopener">🧭 Directions</a>
+    </div>`;
+  return h;
+}
+
+function openSpot(i){
+  const s=SPOTS&&SPOTS[i]; if(!s) return;
+  const b=bandFor(s.score,s.mismatch);
+  openModal(`<div class="mtitle">${s.st.icon} ${esc(s.name||s.st.label)}</div>
+    <div class="msub">${esc(s.st.label)} · ${mi(s.dist)} mi away</div>
+    ${spotDetail(s,b)}
+    <button class="btn alt" onclick="closeModal()">Close</button>`);
+}
+
 /* ============ RENDER ============ */
 let marker=null, ring=null, state={};
 const out=()=>document.getElementById('out');
@@ -1938,9 +3305,11 @@ function render(){
   h+=`<div class="pill ${cls}">${label}</div>`;
 
   h+=`<div class="tabs">
-        <button class="tab ${state.tab==='common'?'on':''}" onclick="setTab('common')">Fish here</button>
-        <button class="tab ${state.tab==='recent'?'on':''}" onclick="setTab('recent')">Recent</button>
+        <button class="tab ${state.tab==='today'?'on':''}" onclick="setTab('today')">Forecast</button>
+        <button class="tab ${state.tab==='common'?'on':''}" onclick="setTab('common')">Fish</button>
+        <button class="tab ${state.tab==='spots'?'on':''}" onclick="setTab('spots')">Spots</button>
         <button class="tab ${state.tab==='cond'?'on':''}" onclick="setTab('cond')">Tides</button>
+        <button class="tab ${state.tab==='recent'?'on':''}" onclick="setTab('recent')">Recent</button>
         <button class="tab ${state.tab==='feed'?'on':''}" onclick="setTab('feed')">Community</button>
       </div>`;
 
@@ -1951,7 +3320,9 @@ function render(){
         </div>`;
   }
 
-  if(state.tab==='common'){
+  if(state.tab==='today'){
+    h+=todayHTML();
+  } else if(state.tab==='common'){
     h+=`<div class="hint">${state.offline
       ? 'Built-in species list for this area — live records unavailable right now. Tap a fish for bait, rigging and technique.'
       : `Ranked by verified iNaturalist records within ${mi(radius,0)} miles of your tap. Tap a fish for bait, rigging and technique.`}</div>`;
@@ -2014,6 +3385,8 @@ function render(){
     });
   } else if(state.tab==='cond'){
     h+=condHTML();
+  } else if(state.tab==='spots'){
+    h+=spotsHTML();
   } else {
     h+=feedHTML();
   }
@@ -2023,33 +3396,70 @@ function render(){
         <b>Limits shown were checked against FWC on ${REG_CHECKED} and are a starting point, not legal advice.</b> Florida manages redfish, snook and seatrout by region, and reef fish seasons can change by executive order mid-season. Confirm on myfwc.com before you keep anything, and carry the right licence and permits.
       </div>`;
   out().innerHTML=h;
+  try{ paintPeek(); }catch(e){}
 }
 
 function sheetSize(mode){
   const s=document.getElementById('side');
-  s.classList.remove('big','small');
+  s.classList.remove('big','small','mid');
   if(mode==='big') s.classList.add('big');
-  if(mode==='small') s.classList.add('small');
+  else if(mode==='small') s.classList.add('small');
+  else if(mode==='mid') s.classList.add('mid');
   const b=document.getElementById('b-full');
-  if(b) b.innerHTML = mode==='small' ? '⤡<span class="lw"> Exit full</span>' : '⤢<span class="lw"> Full map</span>';
-  setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 280);
+  if(b) b.innerHTML = mode==='small'
+    ? '\u2921<span class="lw"> Exit full</span>'
+    : '\u2922<span class="lw"> Full map</span>';
+  setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 290);
 }
 function currentSheet(){
   const s=document.getElementById('side');
-  return s.classList.contains('big')?'big':s.classList.contains('small')?'small':'mid';
+  if(s.classList.contains('big')) return 'big';
+  if(s.classList.contains('small')) return 'small';
+  if(s.classList.contains('mid')) return 'mid';
+  return 'peek';
 }
-/* The handle cycles: half screen → full panel → map only → half screen */
+/* The handle cycles: peek -> half -> full panel -> map only -> peek */
 function toggleSheetSize(){
   const now=currentSheet();
-  sheetSize(now==='mid'?'big':now==='big'?'small':'mid');
+  sheetSize(now==='peek'?'mid':now==='mid'?'big':now==='big'?'small':'peek');
 }
 function toggleFullMap(){
   sheetSize(currentSheet()==='small'?'mid':'small');
 }
 
+/* Keep the collapsed strip meaningful — the score should be readable
+   without opening anything, which is the whole point of it. */
+function paintPeek(){
+  const el=document.getElementById('pkScore'),
+        nm=document.getElementById('pkName'),
+        sb=document.getElementById('pkSub');
+  if(!el||!nm||!sb) return;
+  const st=state||{};
+  if(st.lat==null){
+    el.textContent='\u2014'; el.style.color='var(--ink3)';
+    el.style.borderColor='var(--line2)'; el.style.background='var(--s2)';
+    nm.textContent='Tap the water to start';
+    sb.textContent='Bitecast \u2014 forecast, species, tides and limits';
+    return;
+  }
+  const b=biteScore(st.lat,st.lng,new Date(),WX,st.tide);
+  const bd=biteBand(b.score);
+  el.textContent=b.score;
+  el.style.color=bd.c;
+  el.style.borderColor=bd.c+'66';
+  el.style.background=bd.c+'1a';
+  nm.textContent=st.name||'Unnamed water';
+  const bits=[bd.t];
+  if(b.wind) bits.push(b.wind.speed+' mph '+b.wind.arrow);
+  if(b.pt) bits.push(Math.round(b.pt.cur)+' mb '+(b.pt.delta<-0.2?'\u2193':b.pt.delta>0.2?'\u2191':'\u2192'));
+  if(b.tide) bits.push(b.tide.dir);
+  sb.textContent=bits.join(' \u00B7 ');
+}
+
 function setTab(t){
   state.tab=t; render();
   if(t==='feed' && sb && FEED===null) loadFeed();
+  if(t==='spots' && SPOTS===null && state.lat!=null) loadSpots();
 }
 function tog(el){
   const d=el.parentElement.querySelector('.det');
@@ -2061,8 +3471,8 @@ function tog(el){
 let seq=0;
 async function lookup(lat,lng,radiusOverride){
   const my=++seq;
-  // if the map is full screen, bring the panel back so results are visible
-  try{ if(currentSheet()==='small') sheetSize('mid'); }catch(e){}
+  // bring the panel up so the results are visible, from peek or full-map
+  try{ const cs=currentSheet(); if(cs==='small'||cs==='peek') sheetSize('mid'); }catch(e){}
   const radius = radiusOverride || (map.getZoom()>=12 ? 8 : (map.getZoom()>=10 ? 15 : 25));
 
   if(marker) map.removeLayer(marker);
@@ -2089,18 +3499,25 @@ async function lookup(lat,lng,radiusOverride){
   const offline = (!data.counts.length && !!data.err && !!gaz);
 
   state = {name:id.name, type:id.type, idsrc:id.src, lat, lng, radius,
-           counts:data.counts, recent:data.recent, tab:'common', condDay:'today',
+           counts:data.counts, recent:data.recent, tab:'today', condDay:'today', dayOff:0,
            fishErr:data.err, idErr, offline, fallbackSp: gaz?gaz.sp:null,
            tide:null, tideErr:null};
   FEED=null; FEED_ERR=null;
+  SPOTS=null; SPOTS_ERR=null;
+  if(spotLayer){ map.removeLayer(spotLayer); spotLayer=null; }
   render();
 
-  // tides load in the background so the fish list is not held up
+  // tides and weather load in the background so the fish list is not held up
   if(id.type!=='fresh'){
     tidesFor(lat,lng)
-      .then(t=>{ if(my===seq){ state.tide=t; if(state.tab==='cond') render(); } })
-      .catch(e=>{ if(my===seq){ state.tideErr=e.message||'network error'; if(state.tab==='cond') render(); } });
+      .then(t=>{ if(my===seq){ state.tide=t; if(state.tab==='cond'||state.tab==='today') render(); } })
+      .catch(e=>{ if(my===seq){ state.tideErr=e.message||'network error'; if(state.tab==='cond'||state.tab==='today') render(); } });
   }
+  WX=null; WX_ERR=null;
+  fetchWeather(lat,lng)
+    .then(w=>{ if(my===seq){ WX=w; if(state.tab==='today'||state.tab==='cond') render(); } })
+    .catch(e=>{ if(my===seq){ WX_ERR=e.message||'network error';
+        console.warn('weather failed:',e.message); if(state.tab==='today') render(); } });
 }
 
 map.on('click', e=> lookup(e.latlng.lat, e.latlng.lng));
@@ -2108,6 +3525,7 @@ map.on('click', e=> lookup(e.latlng.lat, e.latlng.lng));
 /* boot accounts */
 initSupabase();
 paintAcct();
+try{ paintPeek(); }catch(e){}
 
 /* ============ LOCATE ME ============ */
 let meDot=null;
