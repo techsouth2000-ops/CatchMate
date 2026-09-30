@@ -323,6 +323,18 @@ button,input,select,textarea{font-family:inherit}
 .dsw.sh{background:#2f6d94}.dsw.dp{background:#0c2334}
 .dlnote{margin-top:7px;padding-top:7px;border-top:1px solid var(--line);color:var(--ink3);
   font-size:9px;line-height:1.55}
+.dlnote:empty{display:none}
+.dlegend.mini{padding:0;border:0;background:none;box-shadow:none;max-width:none}
+.dlmini{background:rgba(14,31,46,.94);border:1px solid var(--line2);color:var(--ink2);
+  font-size:10px;font-weight:650;padding:8px 11px;border-radius:9px;cursor:pointer;
+  box-shadow:0 2px 10px rgba(0,0,0,.4);backdrop-filter:blur(8px);font-family:inherit;
+  white-space:nowrap}
+.dlmini:hover{color:var(--acc);border-color:var(--acc)}
+.dlcar{color:var(--acc);margin-left:3px}
+.dlt span{display:flex;align-items:center;gap:8px}
+.dlx{background:none;border:0;color:var(--ink3);font-size:12px;cursor:pointer;padding:0;
+  line-height:1;text-transform:none;letter-spacing:0}
+.dlx:hover{color:var(--red)}
 
 /* ---------- shops ---------- */
 .slrow{display:flex;align-items:center;gap:11px;width:100%;padding:12px 4px;background:none;
@@ -495,7 +507,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v22.3 charts-live</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v23 deep-zoom</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -539,7 +551,11 @@ button,input,select,textarea{font-family:inherit}
    Tackle data   : curated, keyed to species actually returned
 ----------------------------------------------------------------*/
 
-const map = L.map('map', {zoomControl:true}).setView([27.6,-81.6], 7);
+/* maxZoom 20 on the map, and every layer below carries maxNativeZoom at its
+   real cache limit. Without that, one layer's ceiling caps the whole map —
+   the dark basemap stops at 16, which was stopping the chart well short of
+   where depth contours become readable. */
+const map = L.map('map', {zoomControl:true, maxZoom:20}).setView([27.6,-81.6], 7);
 /* Dark basemap to match the interface — a light map under a dark UI reads
    like two different apps, and dark is easier on the eyes at 5am anyway.
    Falls back to standard OSM if Carto is unreachable. */
@@ -550,19 +566,19 @@ const map = L.map('map', {zoomControl:true}).setView([27.6,-81.6], 7);
 const BASE_SOURCES=[
   {n:'Esri Dark Gray',
    u:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-   a:'\u00A9 Esri', max:16, sub:'abc', filter:false},
+   a:'\u00A9 Esri', max:20, nat:16, sub:'abc', filter:false},
   {n:'Carto Dark',
    u:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-   a:'\u00A9 OpenStreetMap, \u00A9 CARTO', max:20, sub:'abcd', filter:false},
+   a:'\u00A9 OpenStreetMap, \u00A9 CARTO', max:20, nat:20, sub:'abcd', filter:false},
   {n:'OSM inverted',
    u:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-   a:'\u00A9 OpenStreetMap', max:19, sub:'abc', filter:true}
+   a:'\u00A9 OpenStreetMap', max:20, nat:19, sub:'abc', filter:true}
 ];
 let baseIdx=0, baseMap=null, baseFails=0;
 
 function buildBase(){
   const s=BASE_SOURCES[baseIdx];
-  const l=L.tileLayer(s.u,{maxZoom:s.max,subdomains:s.sub,attribution:s.a,
+  const l=L.tileLayer(s.u,{maxZoom:s.max,maxNativeZoom:s.nat||s.max,subdomains:s.sub,attribution:s.a,
                            className:s.filter?'tileDark':''});
   baseFails=0;
   l.on('tileerror',()=>{
@@ -599,7 +615,7 @@ const SAT_SOURCES=[
   {n:'USGS',u:'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',a:'USGS'},
   {n:'Google',u:'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',a:'Google'}
 ];
-let satIdx=0, baseSat=L.tileLayer(SAT_SOURCES[0].u,{maxZoom:19,attribution:SAT_SOURCES[0].a});
+let satIdx=0, baseSat=L.tileLayer(SAT_SOURCES[0].u,{maxZoom:20,maxNativeZoom:19,attribution:SAT_SOURCES[0].a});
 let satFails=0;
 function wireSat(){
   satFails=0;
@@ -611,7 +627,7 @@ function wireSat(){
     console.warn('satellite source failed, switching to',s.n);
     const was=map.hasLayer(baseSat);
     if(was) map.removeLayer(baseSat);
-    baseSat=L.tileLayer(s.u,{maxZoom:19,attribution:s.a});
+    baseSat=L.tileLayer(s.u,{maxZoom:20,maxNativeZoom:19,attribution:s.a});
     wireSat();
     if(was) baseSat.addTo(map);
     document.getElementById('b-sat').textContent='🛰️ Satellite ('+s.n+')';
@@ -648,11 +664,11 @@ function setBase(k){
 const DEPTH_SOURCES=[
   {n:'NOAA charts',
    u:'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}',
-   a:'NOAA Office of Coast Survey', max:19, nat:18, zoff:-2, min:2,
+   a:'NOAA Office of Coast Survey', max:20, nat:18, zoff:-2, min:2,
    note:'Official NOAA chart. Printed numbers are soundings; lines join equal depths.'},
   {n:'OpenSeaMap',
    u:'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
-   a:'OpenSeaMap', max:19, nat:18, zoff:0, min:2,
+   a:'OpenSeaMap', max:20, nat:18, zoff:0, min:2,
    note:'Community marine overlay \u2014 marks, buoys and hazards, not full bathymetry.'}
 ];
 let depthIdx=0, depthLayer=null, depthOn=false, depthFails=0, depthLegend=null;
@@ -690,6 +706,7 @@ function toggleDepth(){
   if(depthOn){
     if(depthLayer) map.removeLayer(depthLayer);
     if(depthLegend){ depthLegend.remove(); depthLegend=null; }
+    depthLegendOpen=false;
     depthOn=false; btn.classList.remove('on');
     return;
   }
@@ -740,20 +757,32 @@ function openDepthPicker(){
   `);
 }
 
+let depthLegendOpen=false;   // collapsed by default: on a phone the map matters more
+
+function toggleDepthLegend(){
+  depthLegendOpen=!depthLegendOpen;
+  paintDepthLegend();
+}
+
 function paintDepthLegend(){
   if(depthLegend) depthLegend.remove();
   const s=DEPTH_SOURCES[depthIdx];
   depthLegend=L.control({position:'bottomleft'});
   depthLegend.onAdd=function(){
-    const d=L.DomUtil.create('div','dlegend');
-    d.innerHTML=`
-      <div class="dlt">${esc(s.n)}
-        <button class="dlsw" onclick="openDepthPicker()">change ›</button></div>
-      <div class="dlr"><b>12</b> a printed number is a sounding: charted depth at that exact spot</div><div class="dlr">Zoom in if you see coastline but no numbers \u2014 soundings appear from about this zoom and closer.</div>
-      <div class="dlr"><span class="dline"></span> a contour line joins points of equal depth — tight lines mean a steep drop-off</div>
-      <div class="dlr"><span class="dsw sh"></span> lighter blue is shallower, <span class="dsw dp"></span> white or pale is deeper open water</div>
-      <div class="dlnote">Soundings on NOAA charts are in <b>feet</b> for most Florida charts, but check the chart title — some are metres or fathoms. Depths are referenced to mean lower low water, so there is usually <i>more</i> water than shown.</div>
-      <div class="dlnote" id="depthmsg"></div>`;
+    const d=L.DomUtil.create('div','dlegend'+(depthLegendOpen?'':' mini'));
+    if(!depthLegendOpen){
+      d.innerHTML='<button class="dlmini" onclick="toggleDepthLegend()">'+
+        '\uD83C\uDF0A '+esc(s.n)+' <span class="dlcar">\u25B4</span></button>';
+    } else {
+      d.innerHTML=
+      '<div class="dlt">'+esc(s.n)+
+        '<span><button class="dlsw" onclick="openDepthPicker()">change</button>'+
+        '<button class="dlx" onclick="toggleDepthLegend()" aria-label="Collapse">\u2715</button></span></div>'+
+      '<div class="dlr"><b>12</b> a printed number is a sounding: the charted depth at that spot</div>'+
+      '<div class="dlr"><span class="dline"></span> lines join equal depths \u2014 where they bunch together the bottom drops away fast, and that edge is usually where fish sit</div>'+
+      '<div class="dlnote">Zoom in if you see coastline but no numbers. Soundings on Florida charts are in <b>feet</b>, measured to mean lower low water, so there is usually more water than printed.</div>'+
+      '<div class="dlnote" id="depthmsg"></div>';
+    }
     L.DomEvent.disableClickPropagation(d);
     return d;
   };
@@ -2785,7 +2814,7 @@ async function toggleRadar(){
     const f=await radarFrame();
     if(radarLayer) map.removeLayer(radarLayer);
     radarLayer=L.tileLayer(f.host+f.frame.path+'/256/{z}/{x}/{y}/2/1_1.png',
-      {opacity:0.62, maxZoom:14, attribution:'RainViewer'});
+      {opacity:0.62, maxZoom:20, maxNativeZoom:12, attribution:'RainViewer'});
     radarLayer.addTo(map);
     radarOn=true;
     btn.innerHTML='\u{1F327}️<span class="lw"> Radar</span>';
