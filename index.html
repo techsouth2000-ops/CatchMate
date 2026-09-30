@@ -324,6 +324,9 @@ button,input,select,textarea{font-family:inherit}
 .dlnote{margin-top:7px;padding-top:7px;border-top:1px solid var(--line);color:var(--ink3);
   font-size:9px;line-height:1.55}
 .dlnote:empty{display:none}
+/* ENC draws black ink for a white paper chart; invert it so the contours and
+   soundings read as white line-work on the dark map instead of vanishing. */
+.encinv img{filter:invert(1) brightness(1.9) contrast(1.35)}
 .dlegend.mini{padding:0;border:0;background:none;box-shadow:none;max-width:none}
 .dlmini{background:rgba(14,31,46,.94);border:1px solid var(--line2);color:var(--ink2);
   font-size:10px;font-weight:650;padding:8px 11px;border-radius:9px;cursor:pointer;
@@ -507,7 +510,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v23 deep-zoom</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v24 depths</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -661,12 +664,38 @@ function setBase(k){
 
    maxNativeZoom stops the chart vanishing past the cache: Leaflet stretches
    the last real tile instead, the way a plotter does. */
+/* ENC_BASE: NOAA's vector chart service. Unlike the raster chart it is drawn
+   on demand per tile, so it stays sharp at zoom 20 instead of turning to mush
+   the moment you pass the cache \u2014 and it comes back with a transparent
+   background, so the dark basemap survives underneath.
+
+   Layer 104 is Depth_Contour_line, 76 is Sounding_point. Those two alone are
+   what an angler wants; the full ENC also paints land, buildings and berths
+   over everything. dpi 192 doubles ArcGIS's symbol sizing so the numbers are
+   legible on a phone. Verified live against the service on 2026-09-30. */
+const ENC_BASE='https://gis.charttools.noaa.gov/arcgis/rest/services/encdirect/enc_harbour/MapServer';
+const ENC_LYRS='76,104';
+const WM_R=20037508.342789244;   // web mercator half-circumference, metres
+
+const EncDepthLayer = L.TileLayer.extend({
+  getTileUrl: function(c){
+    const n=Math.pow(2,c.z), s=2*WM_R/n;
+    const x0=-WM_R+c.x*s, x1=x0+s, y1=WM_R-c.y*s, y0=y1-s;
+    return ENC_BASE+'/export?bbox='+[x0,y0,x1,y1].join(',')+
+      '&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true'+
+      '&layers=show:'+ENC_LYRS+'&dpi=192&f=image';
+  }
+});
+
 const DEPTH_SOURCES=[
-  {n:'NOAA charts',
+  {n:'Depth contours', kind:'enc',
+   a:'NOAA Office of Coast Survey (ENC)', max:20, nat:20, min:12,
+   note:'Vector nautical chart \u2014 stays sharp however far you zoom in.'},
+  {n:'Full NOAA chart', kind:'raster',
    u:'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}',
-   a:'NOAA Office of Coast Survey', max:20, nat:18, zoff:-2, min:2,
-   note:'Official NOAA chart. Printed numbers are soundings; lines join equal depths.'},
-  {n:'OpenSeaMap',
+   a:'NOAA Office of Coast Survey', max:20, nat:18, zoff:-2, min:2, opaque:true,
+   note:'The whole printed chart: channels, marks and hazards. Hides the basemap.'},
+  {n:'OpenSeaMap', kind:'raster',
    u:'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
    a:'OpenSeaMap', max:20, nat:18, zoff:0, min:2,
    note:'Community marine overlay \u2014 marks, buoys and hazards, not full bathymetry.'}
@@ -675,8 +704,14 @@ let depthIdx=0, depthLayer=null, depthOn=false, depthFails=0, depthLegend=null;
 
 function buildDepthLayer(){
   const s=DEPTH_SOURCES[depthIdx];
-  const l=L.tileLayer(s.u,{maxZoom:s.max,maxNativeZoom:s.nat||s.max,minZoom:s.min||0,
-                          zoomOffset:s.zoff||0,opacity:0.85,attribution:s.a});
+  let l;
+  if(s.kind==='enc'){
+    l=new EncDepthLayer('',{maxZoom:s.max,maxNativeZoom:s.nat,minZoom:s.min,
+                            opacity:1,className:'encinv',attribution:s.a});
+  } else {
+    l=L.tileLayer(s.u,{maxZoom:s.max,maxNativeZoom:s.nat||s.max,minZoom:s.min||0,
+                       zoomOffset:s.zoff||0,opacity:s.opaque?0.95:0.85,attribution:s.a});
+  }
   depthFails=0;
   l.on('tileerror',()=>{
     // a handful of missing tiles is normal at the edge of chart coverage;
@@ -714,10 +749,53 @@ function toggleDepth(){
   depthLayer.addTo(map);
   depthOn=true; btn.classList.add('on');
   paintDepthLegend();
-  // Soundings only start rendering around map zoom 13; enabling the layer
-  // any further out shows coastline and place names but no depths, which
-  // reads as a broken layer.
-  if(map.getZoom()<13) map.setZoom(13);
+  /* Soundings only render from about zoom 13. Zooming in on whatever the map
+     happened to be centred on, though, is how this looked broken: from the
+     opening statewide view that lands in the middle of the peninsula, miles
+     from any charted water, and every tile comes back correctly drawn and
+     completely empty. Go to the water the angler actually picked. */
+  const here = (state && state.lat!=null) ? [state.lat,state.lng] : null;
+  if(here) map.setView(here, Math.max(map.getZoom(),14));
+  else if(map.getZoom()<13) map.setZoom(13);
+  checkDepthCoverage();
+}
+
+/* NOAA charts only exist for tidal and coastal water. Inland lakes, ponds and
+   the upper rivers have no soundings at all — not a failure, but the angler
+   deserves to be told rather than left staring at an empty map. */
+async function checkDepthCoverage(){
+  const c=map.getCenter();
+  depthNote('Checking chart coverage here…');
+  const d=await encDepths(c.lat,c.lng,2500);
+  if(d===null){ depthNote('Could not reach the chart service just now.'); return; }
+  if(!d.soundings.length && !d.contours.length){
+    depthNote('No charted depths here. NOAA surveys tidal and coastal water — inland lakes and ponds are not charted.');
+    return;
+  }
+  const ft=d.soundings.map(v=>v*3.28084);
+  const ftTxt=v=>v<1?'under 1':v.toFixed(0);
+  depthNote(ft.length
+    ? 'Charted here: '+ftTxt(Math.min(...ft))+'–'+ftTxt(Math.max(...ft))+' ft at low water.'
+    : 'Contours charted here.');
+}
+
+/* ENC stores depths in METRES. Everything shown to the angler is converted to
+   feet, because a Florida fisherman does not think in metres and a mistaken
+   3.6 reads as feet when it is really 11.8. */
+async function encDepths(lat,lng,radius){
+  const q=(layer,field)=>ENC_BASE+'/'+layer+'/query?geometry='+lng+','+lat+
+    '&geometryType=esriGeometryPoint&inSR=4326&distance='+radius+
+    '&units=esriSRUnit_Meter&spatialRel=esriSpatialRelIntersects&outFields='+field+
+    '&returnGeometry=false&resultRecordCount=200&f=json';
+  try{
+    const [s,c]=await Promise.all([
+      Promise.race([fetch(q(76,'Z')).then(r=>r.json()), timeout(9000)]),
+      Promise.race([fetch(q(104,'VALDCO')).then(r=>r.json()), timeout(9000)])
+    ]);
+    const nums=(j,f)=>(j&&j.features?j.features:[]).map(x=>x.attributes[f])
+                        .filter(v=>typeof v==='number'&&v>0);
+    return {soundings:nums(s,'Z'), contours:[...new Set(nums(c,'VALDCO'))].sort((a,b)=>a-b)};
+  }catch(e){ return null; }
 }
 
 /* Chart coverage varies by area, so let the angler pick the source rather
@@ -778,9 +856,11 @@ function paintDepthLegend(){
       '<div class="dlt">'+esc(s.n)+
         '<span><button class="dlsw" onclick="openDepthPicker()">change</button>'+
         '<button class="dlx" onclick="toggleDepthLegend()" aria-label="Collapse">\u2715</button></span></div>'+
-      '<div class="dlr"><b>12</b> a printed number is a sounding: the charted depth at that spot</div>'+
+      '<div class="dlr"><b>3<sub>6</sub></b> a printed number is a sounding: the charted depth at that spot</div>'+
       '<div class="dlr"><span class="dline"></span> lines join equal depths \u2014 where they bunch together the bottom drops away fast, and that edge is usually where fish sit</div>'+
-      '<div class="dlnote">Zoom in if you see coastline but no numbers. Soundings on Florida charts are in <b>feet</b>, measured to mean lower low water, so there is usually more water than printed.</div>'+
+      (s.kind==='enc'
+        ? '<div class="dlnote">These printed numbers are <b>metres</b> \u2014 3<sub>6</sub> means 3.6 m, about 12 ft. Bitecast converts them to feet for you wherever it quotes a depth. Charted to mean lower low water, so there is usually more water than printed.</div>'
+        : '<div class="dlnote">Soundings on the printed Florida charts are in <b>feet</b>, measured to mean lower low water, so there is usually more water than printed.</div>')+
       '<div class="dlnote" id="depthmsg"></div>';
     }
     L.DomEvent.disableClickPropagation(d);
