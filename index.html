@@ -510,7 +510,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v26 radar-zoom</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v28 water-first</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -571,21 +571,26 @@ const map = L.map('map', {zoomControl:true, maxZoom:20}).setView([27.6,-81.6], 7
 map.createPane('baseTiles').style.zIndex  = 200;
 map.createPane('depthTiles').style.zIndex = 250;
 map.createPane('radarTiles').style.zIndex = 260;
-/* Dark basemap to match the interface — a light map under a dark UI reads
-   like two different apps, and dark is easier on the eyes at 5am anyway.
-   Falls back to standard OSM if Carto is unreachable. */
-/* Dark basemap chain. Esri leads because that host is already proven to
-   work here (the satellite layer uses it). The last entry is ordinary OSM
-   inverted with a CSS filter — not as pretty, but it means the app can
-   never end up with a light map under a dark interface. */
+/* Dark basemap chain. Water comes first: this is a fishing app, and a basemap
+   that draws the Caloosahatchee as a hairline the same colour as the land is
+   worse than useless on it, however tasteful it looks elsewhere.
+
+   Esri's Dark Gray Canvas is explicitly a "canvas" — a muted, heavily
+   generalised backdrop meant to sit UNDER your own data, so it renders
+   inland rivers and canals faintly or not at all. That is the right choice
+   for a dashboard and the wrong one here. Carto Dark is drawn from the same
+   OpenStreetMap data Google uses for its waterways, which is where the
+   Okeechobee Waterway and the rim canals actually live, so it leads now.
+   OSM inverted stays last: not pretty, but it can never leave a light map
+   under a dark interface. */
 const BASE_SOURCES=[
-  {n:'Esri Dark Gray',
-   u:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-   a:'\u00A9 Esri', max:20, nat:16, sub:'abc', filter:false},
-  {n:'Carto Dark',
+  {n:'Carto Dark', d:'Best for water — rivers and canals drawn from OpenStreetMap',
    u:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
    a:'\u00A9 OpenStreetMap, \u00A9 CARTO', max:20, nat:20, sub:'abcd', filter:false},
-  {n:'OSM inverted',
+  {n:'Esri Dark Gray', d:'Minimal backdrop — inland waterways are faint',
+   u:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+   a:'\u00A9 Esri', max:20, nat:16, sub:'abc', filter:false},
+  {n:'OSM inverted', d:'Fallback if the others are unreachable',
    u:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
    a:'\u00A9 OpenStreetMap', max:20, nat:19, sub:'abc', filter:true}
 ];
@@ -685,17 +690,33 @@ function setBase(k){
    what an angler wants; the full ENC also paints land, buildings and berths
    over everything. dpi 192 doubles ArcGIS's symbol sizing so the numbers are
    legible on a phone. Verified live against the service on 2026-09-30. */
-const ENC_BASE='https://gis.charttools.noaa.gov/arcgis/rest/services/encdirect/enc_harbour/MapServer';
-const ENC_LYRS='76,104';
+const ENC_ROOT='https://gis.charttools.noaa.gov/arcgis/rest/services/encdirect/';
+
+/* NOAA splits its vector charts into scale bands, and a given piece of water
+   lives in exactly one of them. Harbour is the most detailed but it only
+   covers harbours and passes; Lake Okeechobee and the Okeechobee Waterway,
+   for instance, are charted in Approach, not Harbour. Querying Harbour alone
+   reported "no charted depths" over water NOAA charts perfectly well.
+
+   Layer numbers differ per band, so they are looked up per service rather
+   than assumed. Verified against each service on 2026-10-01. */
+const ENC_BANDS=[
+  {svc:'enc_harbour',  snd:76, cnt:104, n:'Harbour'},
+  {svc:'enc_approach', snd:80, cnt:108, n:'Approach'},
+  {svc:'enc_coastal',  snd:61, cnt:82,  n:'Coastal'}
+];
+let encBand=0;
+const encUrl=(b)=>ENC_ROOT+ENC_BANDS[b].svc+'/MapServer';
 const WM_R=20037508.342789244;   // web mercator half-circumference, metres
 
 const EncDepthLayer = L.TileLayer.extend({
   getTileUrl: function(c){
     const n=Math.pow(2,c.z), s=2*WM_R/n;
     const x0=-WM_R+c.x*s, x1=x0+s, y1=WM_R-c.y*s, y0=y1-s;
-    return ENC_BASE+'/export?bbox='+[x0,y0,x1,y1].join(',')+
+    const b=ENC_BANDS[this.options.band!=null?this.options.band:encBand];
+    return ENC_ROOT+b.svc+'/MapServer/export?bbox='+[x0,y0,x1,y1].join(',')+
       '&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true'+
-      '&layers=show:'+ENC_LYRS+'&dpi=192&f=image';
+      '&layers=show:'+b.snd+','+b.cnt+'&dpi=192&f=image';
   }
 });
 
@@ -718,8 +739,14 @@ function buildDepthLayer(){
   const s=DEPTH_SOURCES[depthIdx];
   let l;
   if(s.kind==='enc'){
+    /* Each tile is rendered live by ArcGIS rather than served from a cache, so
+       every request costs real time. On a phone that is the difference between
+       a layer that appears and one that seems not to work, so only ask for
+       tiles once the map has settled, and keep little off-screen buffer. */
     l=new EncDepthLayer('',{maxZoom:s.max,maxNativeZoom:s.nat,minZoom:s.min,
-                            opacity:1,pane:'depthTiles',className:'encinv',attribution:s.a});
+                            band:null,opacity:1,pane:'depthTiles',className:'encinv',
+                            updateWhenIdle:true,updateWhenZooming:false,keepBuffer:1,
+                            attribution:s.a});
   } else {
     l=L.tileLayer(s.u,{maxZoom:s.max,maxNativeZoom:s.nat||s.max,minZoom:s.min||0,
                        zoomOffset:s.zoff||0,opacity:s.opaque?0.95:0.85,
@@ -779,12 +806,17 @@ function toggleDepth(){
 async function checkDepthCoverage(){
   const c=map.getCenter();
   depthNote('Checking chart coverage here…');
-  const d=await encDepths(c.lat,c.lng,2500);
-  if(d===null){ depthNote('Could not reach the chart service just now.'); return; }
-  if(!d.soundings.length && !d.contours.length){
-    depthNote('No charted depths here. NOAA surveys tidal and coastal water — inland lakes and ponds are not charted.');
+  const b=await pickEncBand(c.lat,c.lng);
+  if(b<0){
+    depthNote('No charted depths here. NOAA charts tidal and coastal water plus the Okeechobee Waterway — most inland lakes and ponds are not charted.');
     return;
   }
+  if(b!==encBand){                       // a different chart band covers this water
+    encBand=b;
+    if(depthLayer && DEPTH_SOURCES[depthIdx].kind==='enc') depthLayer.redraw();
+  }
+  const d=await encDepths(c.lat,c.lng,2500,b);
+  if(d===null){ depthNote('Could not reach the chart service just now.'); return; }
   const ft=d.soundings.map(v=>v*3.28084);
   const ftTxt=v=>v<1?'under 1':v.toFixed(0);
   depthNote(ft.length
@@ -795,20 +827,32 @@ async function checkDepthCoverage(){
 /* ENC stores depths in METRES. Everything shown to the angler is converted to
    feet, because a Florida fisherman does not think in metres and a mistaken
    3.6 reads as feet when it is really 11.8. */
-async function encDepths(lat,lng,radius){
-  const q=(layer,field)=>ENC_BASE+'/'+layer+'/query?geometry='+lng+','+lat+
+async function encDepths(lat,lng,radius,band){
+  const base=encUrl(band!=null?band:encBand);
+  const q=(layer,field)=>base+'/'+layer+'/query?geometry='+lng+','+lat+
     '&geometryType=esriGeometryPoint&inSR=4326&distance='+radius+
     '&units=esriSRUnit_Meter&spatialRel=esriSpatialRelIntersects&outFields='+field+
     '&returnGeometry=false&resultRecordCount=200&f=json';
+  const B=ENC_BANDS[band!=null?band:encBand];
   try{
     const [s,c]=await Promise.all([
-      Promise.race([fetch(q(76,'Z')).then(r=>r.json()), timeout(9000)]),
-      Promise.race([fetch(q(104,'VALDCO')).then(r=>r.json()), timeout(9000)])
+      Promise.race([fetch(q(B.snd,'Z')).then(r=>r.json()), timeout(9000)]),
+      Promise.race([fetch(q(B.cnt,'VALDCO')).then(r=>r.json()), timeout(9000)])
     ]);
     const nums=(j,f)=>(j&&j.features?j.features:[]).map(x=>x.attributes[f])
                         .filter(v=>typeof v==='number'&&v>0);
     return {soundings:nums(s,'Z'), contours:[...new Set(nums(c,'VALDCO'))].sort((a,b)=>a-b)};
   }catch(e){ return null; }
+}
+
+/* Pick the band that actually charts this water, most detailed first, the way
+   you would reach for the largest-scale chart that covers where you are. */
+async function pickEncBand(lat,lng){
+  for(let i=0;i<ENC_BANDS.length;i++){
+    const d=await encDepths(lat,lng,3000,i);
+    if(d && (d.soundings.length || d.contours.length)) return i;
+  }
+  return -1;
 }
 
 /* Chart coverage varies by area, so let the angler pick the source rather
@@ -2859,7 +2903,8 @@ function openLayers(){
     layerRow('sat','🛰️','Satellite','Aerial imagery — read grass flats, bars and channel edges.',satOn,"pickBase('sat')")+
     (satOn?'':'<div class="lyAlt"><div class="lyAltT">Dark map source</div>'+
       BASE_SOURCES.map((s,i)=>'<button class="lyPill'+(i===baseIdx?' on':'')+'" onclick="setBaseSource('+i+')">'+esc(s.n)+'</button>').join('')+
-      '<div class="lyD" style="margin-top:7px">If the map looks blank or wrong, pick another source. The last one inverts standard OpenStreetMap, so it always works.</div></div>')+
+      '<div class="lyD" style="margin-top:7px"><b>'+esc(BASE_SOURCES[baseIdx].n)+'</b> \u2014 '+esc(BASE_SOURCES[baseIdx].d||'')+
+      '<br>If a river or canal you know is there is not drawn, switch source. If the map looks blank, the last one inverts standard OpenStreetMap and always works.</div></div>')+
 
     '<div class="lySec">Overlays</div>'+
     layerRow('depth','🌊','Depth contours','Official nautical chart: soundings and contour lines.',depthOn,'toggleDepth();closeModal()')+
