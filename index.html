@@ -510,7 +510,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v24 depths</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v25 panes</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -559,6 +559,18 @@ button,input,select,textarea{font-family:inherit}
    the dark basemap stops at 16, which was stopping the chart well short of
    where depth contours become readable. */
 const map = L.map('map', {zoomControl:true, maxZoom:20}).setView([27.6,-81.6], 7);
+
+/* Fixed panes, so stacking order is declared rather than inherited from the
+   order layers happened to be added. Everything used to share Leaflet's one
+   tilePane, where a layer sits above whatever was added before it — so any
+   basemap or satellite failover (removeLayer then addTo) re-inserted the base
+   ON TOP of depth and radar and quietly buried them. That fires hardest on a
+   phone: more tiles at high zoom over a weaker connection means more tile
+   errors, which is exactly when the failover trips. Panes make it impossible.
+   All three sit below overlayPane (400) so markers and rings still draw over. */
+map.createPane('baseTiles').style.zIndex  = 200;
+map.createPane('depthTiles').style.zIndex = 250;
+map.createPane('radarTiles').style.zIndex = 260;
 /* Dark basemap to match the interface — a light map under a dark UI reads
    like two different apps, and dark is easier on the eyes at 5am anyway.
    Falls back to standard OSM if Carto is unreachable. */
@@ -582,7 +594,7 @@ let baseIdx=0, baseMap=null, baseFails=0;
 function buildBase(){
   const s=BASE_SOURCES[baseIdx];
   const l=L.tileLayer(s.u,{maxZoom:s.max,maxNativeZoom:s.nat||s.max,subdomains:s.sub,attribution:s.a,
-                           className:s.filter?'tileDark':''});
+                           pane:'baseTiles',className:s.filter?'tileDark':''});
   baseFails=0;
   l.on('tileerror',()=>{
     // a few misses are normal past a source's zoom ceiling; a wall of them is not
@@ -618,7 +630,7 @@ const SAT_SOURCES=[
   {n:'USGS',u:'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',a:'USGS'},
   {n:'Google',u:'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',a:'Google'}
 ];
-let satIdx=0, baseSat=L.tileLayer(SAT_SOURCES[0].u,{maxZoom:20,maxNativeZoom:19,attribution:SAT_SOURCES[0].a});
+let satIdx=0, baseSat=L.tileLayer(SAT_SOURCES[0].u,{maxZoom:20,maxNativeZoom:19,pane:'baseTiles',attribution:SAT_SOURCES[0].a});
 let satFails=0;
 function wireSat(){
   satFails=0;
@@ -630,7 +642,7 @@ function wireSat(){
     console.warn('satellite source failed, switching to',s.n);
     const was=map.hasLayer(baseSat);
     if(was) map.removeLayer(baseSat);
-    baseSat=L.tileLayer(s.u,{maxZoom:20,maxNativeZoom:19,attribution:s.a});
+    baseSat=L.tileLayer(s.u,{maxZoom:20,maxNativeZoom:19,pane:'baseTiles',attribution:s.a});
     wireSat();
     if(was) baseSat.addTo(map);
     document.getElementById('b-sat').textContent='🛰️ Satellite ('+s.n+')';
@@ -707,10 +719,11 @@ function buildDepthLayer(){
   let l;
   if(s.kind==='enc'){
     l=new EncDepthLayer('',{maxZoom:s.max,maxNativeZoom:s.nat,minZoom:s.min,
-                            opacity:1,className:'encinv',attribution:s.a});
+                            opacity:1,pane:'depthTiles',className:'encinv',attribution:s.a});
   } else {
     l=L.tileLayer(s.u,{maxZoom:s.max,maxNativeZoom:s.nat||s.max,minZoom:s.min||0,
-                       zoomOffset:s.zoff||0,opacity:s.opaque?0.95:0.85,attribution:s.a});
+                       zoomOffset:s.zoff||0,opacity:s.opaque?0.95:0.85,
+                       pane:'depthTiles',attribution:s.a});
   }
   depthFails=0;
   l.on('tileerror',()=>{
@@ -2894,7 +2907,7 @@ async function toggleRadar(){
     const f=await radarFrame();
     if(radarLayer) map.removeLayer(radarLayer);
     radarLayer=L.tileLayer(f.host+f.frame.path+'/256/{z}/{x}/{y}/2/1_1.png',
-      {opacity:0.62, maxZoom:20, maxNativeZoom:12, attribution:'RainViewer'});
+      {opacity:0.62, maxZoom:20, maxNativeZoom:12, pane:'radarTiles', attribution:'RainViewer'});
     radarLayer.addTo(map);
     radarOn=true;
     btn.innerHTML='\u{1F327}️<span class="lw"> Radar</span>';
