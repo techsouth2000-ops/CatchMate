@@ -510,7 +510,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v28 water-first</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v29 keyless</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -571,28 +571,29 @@ const map = L.map('map', {zoomControl:true, maxZoom:20}).setView([27.6,-81.6], 7
 map.createPane('baseTiles').style.zIndex  = 200;
 map.createPane('depthTiles').style.zIndex = 250;
 map.createPane('radarTiles').style.zIndex = 260;
-/* Dark basemap chain. Water comes first: this is a fishing app, and a basemap
-   that draws the Caloosahatchee as a hairline the same colour as the land is
-   worse than useless on it, however tasteful it looks elsewhere.
+/* Dark basemap chain. Two hard lessons are baked into this list.
 
-   Esri's Dark Gray Canvas is explicitly a "canvas" — a muted, heavily
-   generalised backdrop meant to sit UNDER your own data, so it renders
-   inland rivers and canals faintly or not at all. That is the right choice
-   for a dashboard and the wrong one here. Carto Dark is drawn from the same
-   OpenStreetMap data Google uses for its waterways, which is where the
-   Okeechobee Waterway and the rim canals actually live, so it leads now.
-   OSM inverted stays last: not pretty, but it can never leave a light map
-   under a dark interface. */
+   First, water comes before looks: this is a fishing app, and Esri's Dark Gray
+   Canvas is explicitly a muted backdrop meant to sit UNDER your own data, so it
+   renders the Caloosahatchee and the rim canals faintly or not at all.
+
+   Second, every source here must work with no API key. Carto was the obvious
+   choice on cartography and had to be dropped: it now requires a key, and
+   rather than failing with an HTTP error it returns a normal 200 tile with
+   "API KEY REQUIRED" watermarked into the image — which no tileerror handler
+   can ever catch. RainViewer does the same thing with its zoom limit. A tile
+   source that reports failure as a picture cannot be trusted in a failover
+   chain, so the chain only contains sources that are free of keys outright.
+
+   OpenStreetMap leads because it draws every waterway and needs no key. It is
+   inverted with a CSS filter to match the dark interface. */
 const BASE_SOURCES=[
-  {n:'Carto Dark', d:'Best for water — rivers and canals drawn from OpenStreetMap',
-   u:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-   a:'\u00A9 OpenStreetMap, \u00A9 CARTO', max:20, nat:20, sub:'abcd', filter:false},
-  {n:'Esri Dark Gray', d:'Minimal backdrop — inland waterways are faint',
-   u:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-   a:'\u00A9 Esri', max:20, nat:16, sub:'abc', filter:false},
-  {n:'OSM inverted', d:'Fallback if the others are unreachable',
+  {n:'OpenStreetMap dark', d:'Draws every river, canal and lake \u2014 no key needed',
    u:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-   a:'\u00A9 OpenStreetMap', max:20, nat:19, sub:'abc', filter:true}
+   a:'\u00A9 OpenStreetMap', max:20, nat:19, sub:'abc', filter:true},
+  {n:'Esri Dark Gray', d:'Cleaner, but inland rivers and canals are faint or absent',
+   u:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+   a:'\u00A9 Esri', max:20, nat:16, sub:'abc', filter:false}
 ];
 let baseIdx=0, baseMap=null, baseFails=0;
 
@@ -1346,7 +1347,7 @@ async function runDiagnostics(){
     ['Open-Meteo (weather)', probeJSON('https://api.open-meteo.com/v1/forecast?latitude=26.6&longitude=-81.9&current=surface_pressure')],
     ['RainViewer (radar)', probeJSON('https://api.rainviewer.com/public/weather-maps.json')],
     ['Esri dark basemap', probeImage('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/7/54/34')],
-    ['Carto dark basemap', probeImage('https://a.basemaps.cartocdn.com/dark_all/7/34/54.png')],
+    ['OpenStreetMap basemap', probeImage('https://a.tile.openstreetmap.org/7/34/54.png')],
     ['NOAA charts', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/10/1732/1113')],
     ['OpenSeaMap (marine overlay)', probeImage('https://tiles.openseamap.org/seamark/12/1113/1732.png')]
   ];
