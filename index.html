@@ -510,7 +510,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v25 panes</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v26 radar-zoom</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -2906,8 +2906,17 @@ async function toggleRadar(){
   try{
     const f=await radarFrame();
     if(radarLayer) map.removeLayer(radarLayer);
+    /* RainViewer only renders its mosaic over a narrow zoom band. Ask for a
+       tile outside it and you do not get a 404 you can catch — you get a
+       perfectly valid PNG with "Zoom Level Not Supported" painted into it,
+       which is why this looked like grey boxes rather than a failure. Their
+       API documents a maximum of 7; an independent implementation that hit
+       the same placeholder settled on 4-9. Staying inside both and letting
+       Leaflet stretch outside it costs nothing real: a radar mosaic is about
+       1 km per pixel, so there is no detail past zoom 7 to lose. */
     radarLayer=L.tileLayer(f.host+f.frame.path+'/256/{z}/{x}/{y}/2/1_1.png',
-      {opacity:0.62, maxZoom:20, maxNativeZoom:12, pane:'radarTiles', attribution:'RainViewer'});
+      {opacity:0.62, maxZoom:20, minNativeZoom:4, maxNativeZoom:7,
+       pane:'radarTiles', attribution:'RainViewer'});
     radarLayer.addTo(map);
     radarOn=true;
     btn.innerHTML='\u{1F327}️<span class="lw"> Radar</span>';
@@ -2917,6 +2926,7 @@ async function toggleRadar(){
       const age=Math.round((Date.now()/1000-f.frame.time)/60);
       el.innerHTML='<div class="dlt">Rain radar</div>'+
         '<div class="dlr">Live precipitation. Heavier colour means heavier rain.</div>'+
+        '<div class="dlnote">Radar is about 1 km per pixel, so it stays coarse and goes soft as you zoom right in — that is the data, not a loading problem.</div>'+
         '<div class="dlnote">Frame is '+age+' min old. A squall line crossing your water usually'+
         ' means a pressure drop just ahead of it — often the best short window of the day,'+
         ' but get off the water before the lightning arrives.</div>';
