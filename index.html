@@ -512,7 +512,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v35 probes</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v36 trip</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -3381,19 +3381,17 @@ function tideStage(tide,when){
 }
 
 /* Pull real mapped structure around a point. */
-async function fetchSpots(lat,lng,radiusM){
+async function fetchSpots(lat,lng,radiusM,tmo){
   const r=radiusM||12000, ll=`${lat.toFixed(5)},${lng.toFixed(5)}`;
-  const q=`[out:json][timeout:30];(`+
-    `nwr(around:${r},${ll})["natural"="strait"];`+
-    `nwr(around:${r},${ll})["natural"="cape"];`+
-    `nwr(around:${r},${ll})["natural"="reef"];`+
-    `nwr(around:${r},${ll})["natural"="shoal"];`+
-    `nwr(around:${r},${ll})["natural"="wetland"]["wetland"~"mangrove|tidalflat"];`+
-    `nwr(around:${r},${ll})["man_made"="pier"];`+
-    `nwr(around:${r},${ll})["man_made"~"breakwater|groyne"];`+
-    `nwr(around:${r},${ll})["leisure"="marina"];`+
-    `nwr(around:${r},${ll})["leisure"="slipway"];`+
-    `nwr(around:${r},${ll})["leisure"="fishing"];`+
+  /* Twelve separate clauses over a 7-mile radius is ~450 km2 of index work and
+     it was timing out on a loaded mirror — which the app then reported as "no
+     structure here". Collapsing related tags into regex alternatives takes it
+     from twelve passes to six for the same results. */
+  const q=`[out:json][timeout:${tmo||25}];(`+
+    `nwr(around:${r},${ll})["natural"~"^(strait|cape|reef|shoal)$"];`+
+    `nwr(around:${r},${ll})["wetland"~"^(mangrove|tidalflat)$"];`+
+    `nwr(around:${r},${ll})["man_made"~"^(pier|breakwater|groyne)$"];`+
+    `nwr(around:${r},${ll})["leisure"~"^(marina|slipway|fishing)$"];`+
     `way(around:${r},${ll})["bridge"]["highway"];`+
     `node(around:${r},${ll})["seamark:type"~"buoy_lateral|beacon_lateral"];`+
     `);out tags center 200;`;
@@ -3502,15 +3500,25 @@ function bandFor(score,mismatch){
   return {t:'Off-peak', c:'#8b95a1', k:'off'};
 }
 
-let SPOTS=null, SPOTS_ERR=null, spotLayer=null;
+let SPOTS=null, SPOTS_ERR=null, SPOTS_NARROW=false, spotLayer=null;
 
 async function loadSpots(){
   const st=state||{};
   if(st.lat==null) return;
-  SPOTS_ERR=null; SPOTS=null;
+  SPOTS_ERR=null; SPOTS=null; SPOTS_NARROW=false;
   if(state.tab==='spots') render();
   try{
-    const raw=await fetchSpots(st.lat,st.lng,12000);
+    /* Overpass mirrors are genuinely flaky — one can be timing out while
+       another answers fine. Give it a second, cheaper go before telling the
+       angler we found nothing: half the radius is a quarter of the work, and
+       3.5 miles of structure still beats an error message. */
+    let raw;
+    try{ raw=await fetchSpots(st.lat,st.lng,12000,25); }
+    catch(first){
+      await new Promise(r=>setTimeout(r,900));
+      raw=await fetchSpots(st.lat,st.lng,6000,20);
+      SPOTS_NARROW=true;
+    }
     const ctx=spotContext();
     // spots whose defining condition is wrong sink below every spot whose isn't
     SPOTS=raw.map(s=>scoreSpot(s,ctx)).filter(Boolean)
@@ -3571,7 +3579,7 @@ function spotsHTML(){
   bits.push(ctx.dark?'🌙 after dark':ctx.lowlight?'🌅 low light':'☀️ daylight');
   if(ctx.solActive) bits.push('🎣 '+ctx.solActive+' feeding period running');
   h+=`<div class="sctx">${bits.map(b=>esc(b)).join(' · ')}</div>`;
-  h+=`<div class="hint">Structure within 7 miles, ranked against those conditions. Every spot says why it made the list — and why it might not be the one today.</div>`;
+  h+=`<div class="hint">Structure within ${SPOTS_NARROW?'3.5':'7'} miles, ranked against those conditions. Every spot says why it made the list — and why it might not be the one today.${SPOTS_NARROW?' <b>OpenStreetMap was busy, so this is the closer-in search.</b>':''}</div>`;
 
   if(SPOTS_ERR) h+=msg('Could not load structure: '+SPOTS_ERR);
   if(SPOTS===null) return h+`<div class="nod"><span class="spin"></span>Reading the structure around here…</div>`;
@@ -3581,8 +3589,12 @@ function spotsHTML(){
        had to be named from the offline list, Overpass never answered, and we
        know nothing about the structure here — say that instead of asserting
        there is none. */
-    if(st.idsrc==='offline list' || st.idErr)
-      return h+`<div class="nod">The structure lookup did not come back, so this list is empty — it does not mean there is nothing here. OpenStreetMap was unreachable or too busy. Pull down to try again in a moment.</div>`;
+    /* SPOTS_ERR is the signal, not how the water got named. v34 keyed off the
+       identification source, so when naming succeeded and only the structure
+       query failed the app printed the error AND "no mapped structure within
+       7 miles" directly underneath it — contradicting itself in two lines. */
+    if(SPOTS_ERR || st.idsrc==='offline list' || st.idErr)
+      return h+`<div class="nod">The structure lookup did not come back, so this list is empty — it does not mean there is nothing here. OpenStreetMap was busy or unreachable. Tap <b>Spots</b> again in a moment to retry.</div>`;
     return h+`<div class="nod">No mapped structure within 7 miles. OpenStreetMap is thin in rural areas — try tapping nearer a pass, bridge or developed shoreline.</div>`;
   }
 
