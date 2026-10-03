@@ -512,7 +512,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v33 one-shot</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v34 spots</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -774,6 +774,8 @@ const EncDepthLayer = L.Layer.extend({
     ov.on('load', function(){
       if(self._cur && self._cur!==ov && self._map) self._map.removeLayer(self._cur);
       self._cur=ov;
+      depthFails=0;                 // a good render clears the failure streak
+      self.fire('chartload');
     });
     ov.on('error', function(){
       if(self._map) self._map.removeLayer(ov);
@@ -814,6 +816,11 @@ function buildDepthLayer(){
                        pane:'depthTiles',attribution:s.a});
   }
   depthFails=0;
+  /* Clear a stale "charts are not loading" note the moment one does. It was
+     left on screen underneath a perfectly good chart. */
+  l.on('chartload',()=>{
+    if(/not loading/.test(depthMsgText)) depthNote('');
+  });
   l.on('tileerror',()=>{
     /* Six errors used to demote the source. That was far too twitchy for ENC:
        it is rendered to order, so a screenful of tiles at high zoom can have
@@ -1205,10 +1212,16 @@ const T = {
 };
 
 /* ============ WATER BODY IDENTIFICATION (Overpass / OSM) ============ */
+/* overpass.osm.ch removed 2026-10-03: it answers HTTP 200 with a valid but
+   EMPTY element set for perfectly good queries — a search around Sanibel
+   Island came back with nothing named at all. Because the mirrors are raced
+   and the first answer wins, a fast mirror serving an empty database beat the
+   working ones, and the app announced "no mapped structure within 7 miles"
+   over the Sanibel Causeway. Same shape as RainViewer's zoom tiles and Carto's
+   key notice: a 200 that means no. */
 const OVERPASS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.osm.ch/api/interpreter'
+  'https://overpass.kumi.systems/api/interpreter'
 ];
 
 /* NOTE: no AbortController / no fetch options object.
@@ -1223,27 +1236,45 @@ async function getJSON(url,ms){
   if(!r.ok) throw new Error('HTTP '+r.status);
   return r.json();
 }
+let overpassTurn=0;
 async function overpass(q){
   // Race the mirrors instead of trying them one at a time. Overpass servers
   // vary wildly in load, so the sequential version waited out a slow one
   // before even trying a fast one.
   const url=u=>u+'?data='+encodeURIComponent(q);
-  const tries=OVERPASS.map(u=>getJSON(url(u),25000));
+  /* Race at most two mirrors, rotating which. Racing every mirror on every
+     query multiplies our request count, and a single tap fires several
+     queries — that is how an IP gets throttled, and a throttled Overpass
+     answers with nothing rather than an error. */
+  const n=OVERPASS.length;
+  const pick=[OVERPASS[overpassTurn%n], OVERPASS[(overpassTurn+1)%n]];
+  overpassTurn=(overpassTurn+1)%n;
+  const tries=pick.map(u=>getJSON(url(u),25000));
   tries.forEach(p=>p.catch(()=>{}));   // losers must not raise unhandled rejections
   if(typeof Promise.any==='function'){
+    const empties=[];
     try{
       const bad=d=>d && d.remark && /error|timed out|runtime/i.test(d.remark);
-      // Overpass sometimes answers 200 with an error note instead of failing.
-      // Promise.any hands back whichever mirror replied first, so a fast
-      // mirror returning a remark used to sink the whole query while the
-      // other two were still working. Take the first GOOD answer instead.
+      /* Overpass answers 200 with an error note instead of failing, and a
+         mirror can also answer 200 with a valid but EMPTY element set while
+         its database is broken. Promise.any hands back whichever mirror
+         replied first, so either of those used to win the race and be taken
+         as truth — which is how "no mapped structure within 7 miles" appeared
+         over the Sanibel Causeway. Prefer a mirror that actually found
+         something; only believe empty when every mirror says empty. */
       const d=await Promise.any(tries.map(pr=>pr.then(v=>{
         if(bad(v)) throw new Error('Overpass: '+v.remark);
+        if(!v || !Array.isArray(v.elements))
+          throw new Error('Overpass returned no result set');
+        if(!v.elements.length){ empties.push(v); throw new Error('__empty__'); }
         return v;
       })));
       return d;
     }
-    catch(e){ throw new Error(e.message&&e.message.startsWith('Overpass:')?e.message:'all Overpass mirrors failed or timed out'); }
+    catch(e){
+      if(empties.length) return empties[0];   // unanimous: genuinely nothing here
+      throw new Error(e.message&&e.message.startsWith('Overpass:')?e.message:'all Overpass mirrors failed or timed out');
+    }
   }
   let lastErr;
   for(const p of tries){ try{ return await p; }catch(e){ lastErr=e; } }
@@ -1299,47 +1330,43 @@ async function identify(lat,lng){
     if(near) return {name:near.tg.name, type:classify(near.tg), src:'waterway you tapped', tags:near.tg};
   }catch(e){ console.warn('waterway pass failed',e); }
 
-  // Pass 1: which mapped water polygon actually CONTAINS this point
-  const q1 = `[out:json][timeout:20];is_in(${lat},${lng})->.a;`+
-             `(area.a["natural"="water"];area.a["natural"="bay"];area.a["natural"="strait"];`+
-             `area.a["waterway"];area.a["place"="sea"];);out tags;`;
-  try{
-    const d = await overpass(q1);
-    const best = (d.elements||[]).map(e=>({tg:e.tags||{},sc:scoreTags(e.tags)}))
-      .filter(x=>x.sc>0).sort((a,b)=>b.sc-a.sc)[0];
-    if(best) return {name:best.tg.name, type:classify(best.tg), src:'contained polygon', tags:best.tg};
-  }catch(e){ console.warn('is_in failed',e); }
-
-  // Pass 2: nearest named water feature
-  const q2 = `[out:json][timeout:20];(`+
-    `way(around:900,${lat},${lng})["natural"="water"]["name"];`+
+  /* One request for both remaining passes: what encloses the point, and what
+     named water lies near it. These used to be two round trips; a tap already
+     fires several Overpass queries and the service throttles by IP, so every
+     request saved is one less chance of being cut off and told "nothing here". */
+  const q = `[out:json][timeout:25];is_in(${lat},${lng})->.a;`+
+    `(area.a["natural"="water"];area.a["natural"="bay"];area.a["natural"="strait"];`+
+    `area.a["waterway"];area.a["place"="sea"];);out tags;`+
+    `(way(around:900,${lat},${lng})["natural"="water"]["name"];`+
     `rel(around:900,${lat},${lng})["natural"="water"]["name"];`+
     `way(around:900,${lat},${lng})["waterway"]["name"];`+
     `rel(around:2500,${lat},${lng})["waterway"="river"]["name"];`+
     `way(around:4000,${lat},${lng})["natural"~"bay|strait"]["name"];`+
     `node(around:6000,${lat},${lng})["natural"~"bay|strait"]["name"];`+
-    `node(around:30000,${lat},${lng})["place"="sea"]["name"];`+
-    `);out tags center 40;`;
+    `node(around:30000,${lat},${lng})["place"="sea"]["name"];);out tags center 60;`;
   try{
-    const d = await overpass(q2);
-    const cands = (d.elements||[]).map(e=>{
+    const d = await overpass(q);
+    const els = d.elements||[];
+    // areas come from is_in, so the point is inside them: no distance penalty
+    const areas = els.filter(e=>e.type==='area')
+      .map(e=>({tg:e.tags||{}, sc:scoreTags(e.tags), rank:scoreTags(e.tags)}))
+      .filter(x=>x.sc>0);
+    const near = els.filter(e=>e.type!=='area').map(e=>{
       const tg=e.tags||{}, sc=scoreTags(tg);
       const c = e.center || (e.lat!=null?{lat:e.lat,lon:e.lon}:null);
-      const dist = c ? Math.hypot(c.lat-lat,(c.lon-lng)*Math.cos(lat*Math.PI/180)) : 9;
-      return {tg,sc,dist};
+      const dm = c ? Math.hypot(c.lat-lat,(c.lon-lng)*Math.cos(lat*Math.PI/180))*111320 : 9e5;
+      /* Score and distance together. Score alone let a large water body
+         anywhere in the search radius beat the creek under the boat; one point
+         of tag score is worth about 90 m here. */
+      return {tg, sc, rank: sc - dm/90};
     }).filter(x=>x.sc>0);
-    if(cands.length){
-      /* Score and distance together. Score alone meant a large water body
-         anywhere inside the search radius beat the creek or canal under the
-         angler's boat. One point of tag score is worth about 90 m here, so a
-         river at 50 m still wins over a lake at 900 m, while a lake you are
-         actually sitting in still wins over a ditch far away. */
-      cands.forEach(c=>{ c.rank = c.sc - (c.dist*111320)/90; });
-      cands.sort((a,b)=> b.rank - a.rank);
-      const b = cands[0];
-      return {name:b.tg.name, type:classify(b.tg), src:'nearest named feature', tags:b.tg};
+    const all=[...areas,...near].sort((a,b)=>b.rank-a.rank);
+    if(all.length){
+      const b=all[0];
+      return {name:b.tg.name, type:classify(b.tg),
+              src: areas.includes(b)?'contained polygon':'nearest named feature', tags:b.tg};
     }
-  }catch(e){ console.warn('around failed',e); }
+  }catch(e){ console.warn('identify failed',e); throw e; }
 
   return {name:null, type:'unk', src:'not found', tags:{}};
 }
@@ -3534,7 +3561,16 @@ function spotsHTML(){
 
   if(SPOTS_ERR) h+=msg('Could not load structure: '+SPOTS_ERR);
   if(SPOTS===null) return h+`<div class="nod"><span class="spin"></span>Reading the structure around here…</div>`;
-  if(!SPOTS.length) return h+`<div class="nod">No mapped structure within 7 miles. OpenStreetMap is thin in rural areas — try tapping nearer a pass, bridge or developed shoreline.</div>`;
+  if(!SPOTS.length){
+    /* "No structure within 7 miles" is a strong claim and it was being made
+       whenever the lookup came back empty for ANY reason. If the water itself
+       had to be named from the offline list, Overpass never answered, and we
+       know nothing about the structure here — say that instead of asserting
+       there is none. */
+    if(st.idsrc==='offline list' || st.idErr)
+      return h+`<div class="nod">The structure lookup did not come back, so this list is empty — it does not mean there is nothing here. OpenStreetMap was unreachable or too busy. Pull down to try again in a moment.</div>`;
+    return h+`<div class="nod">No mapped structure within 7 miles. OpenStreetMap is thin in rural areas — try tapping nearer a pass, bridge or developed shoreline.</div>`;
+  }
 
   SPOTS.forEach((s,i)=>{
     const b=bandFor(s.score,s.mismatch);
