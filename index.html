@@ -512,7 +512,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v34 spots</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v35 probes</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -1494,12 +1494,17 @@ async function runDiagnostics(){
     ['RainViewer (radar)', probeJSON('https://api.rainviewer.com/public/weather-maps.json')],
     ['Esri dark basemap', probeImage('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/7/54/34')],
     /* Chart sources start here; CHART_FROM below must match this index.
-       The old NOAA probe asked for tile/10/1732/1113 — the URL template is
-       {z}/{y}/{x} and at zoom 10 the highest valid index is 1023, so it was
-       out of range and ALWAYS reported blocked. The ENC service, which is the
-       default depth source, was not probed at all. */
+
+       The raster probe below looks wrong and is not. This service's level L
+       is drawn on the tile grid of web zoom L+2 — that is exactly why the
+       layer carries zoomOffset:-2 — so level 10 has a 4096-wide grid and
+       indices like 1732/1113 are in range. Judged against a plain zoom-10
+       grid they look out of bounds, which is how a "fix" to this line
+       previously replaced a correct probe with one that really was wrong and
+       reported the charts blocked every time. The indices here are web zoom
+       12 over Matlacha Pass, where charts are known to render. */
     ['NOAA ENC (depth contours)', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/encdirect/enc_harbour/MapServer/export?bbox=-9150000,3100000,-9145000,3105000&bboxSR=3857&imageSR=3857&size=64,64&format=png32&transparent=true&layers=show:76,104&f=image')],
-    ['NOAA raster charts', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/8/108/69')],
+    ['NOAA raster charts', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/10/1732/1113')],
     ['OpenSeaMap (marine overlay)', probeImage('https://tiles.openseamap.org/seamark/12/1113/1732.png')]
   ];
   const CHART_FROM=8;                     // index of the first chart source above
@@ -1525,14 +1530,23 @@ async function runDiagnostics(){
     h+=`<div style="margin-top:14px;padding:10px;background:rgba(47,196,158,.10);color:var(--ink);border-left:3px solid var(--sec);border-radius:6px;font-size:12px;line-height:1.6">
       Everything is reachable. Tap the map and you will get live water names and live fish records.</div>`;
   }
-  if(!chartsOk){
+  /* Only the first chart row is the depth layer the app actually draws. The
+     other two are alternatives you can pick by hand, so counting them equally
+     produced a warning telling the angler to go and change sources while the
+     real one was working perfectly. Judge on the one that matters. */
+  const depthOk=results[CHART_FROM];
+  if(!depthOk && !chartsOk){
     h+=`<div class="err" style="margin-top:12px">
       No chart source is answering, so the 🌊 fishing map will have nothing to draw.
       If the other rows above are green, the chart hosts themselves are the problem rather than your connection.</div>`;
-  } else if(chartsOk<charts.length){
+  } else if(!depthOk){
     h+=`<div style="margin-top:12px;padding:10px;background:rgba(214,169,62,.12);color:var(--ink);border-left:3px solid #d6a93e;border-radius:6px;font-size:12px;line-height:1.6">
-      ${chartsOk} of ${charts.length} chart sources are reachable. Open the 🌊 fishing map and use
-      <b>change ›</b> on the legend to pick one that works where you fish.</div>`;
+      Depth contours are not answering, but another chart source is. Open the 🌊 fishing map and use
+      <b>change ›</b> on the legend to switch to it.</div>`;
+  } else if(chartsOk<charts.length){
+    h+=`<div style="margin-top:12px;padding:10px;background:rgba(47,196,158,.10);color:var(--ink);border-left:3px solid var(--sec);border-radius:6px;font-size:12px;line-height:1.6">
+      Depth contours are working. ${charts.length-chartsOk} of the alternative chart source${charts.length-chartsOk===1?' is':'s are'}
+      not answering, which only matters if you switch to ${charts.length-chartsOk===1?'it':'them'}.</div>`;
   }
   h+='<div class="foot">Tap the map to go back to fishing.</div>';
   out().innerHTML=h;
