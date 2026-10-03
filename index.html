@@ -512,7 +512,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v31 hardened</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v32 close-in</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -560,7 +560,12 @@ button,input,select,textarea{font-family:inherit}
    real cache limit. Without that, one layer's ceiling caps the whole map —
    the dark basemap stops at 16, which was stopping the chart well short of
    where depth contours become readable. */
-const map = L.map('map', {zoomControl:true, maxZoom:20}).setView([27.6,-81.6], 7);
+/* maxZoom 22, not 20. The depth layer is NOAA's vector ENC, rendered to order
+   per tile, so it stays sharp as far in as you care to go — verified returning
+   clean imagery at 1:282, about ten metres across a tile. Anglers read a drop
+   by where the contours bunch, and that is a close-range judgement. Raster
+   layers below simply stretch their last real tile. */
+const map = L.map('map', {zoomControl:true, maxZoom:22}).setView([27.6,-81.6], 7);
 
 /* Fixed panes, so stacking order is declared rather than inherited from the
    order layers happened to be added. Everything used to share Leaflet's one
@@ -592,10 +597,10 @@ map.createPane('radarTiles').style.zIndex = 260;
 const BASE_SOURCES=[
   {n:'OpenStreetMap dark', d:'Draws every river, canal and lake \u2014 no key needed',
    u:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-   a:'\u00A9 OpenStreetMap', max:20, nat:19, sub:'abc', filter:true},
+   a:'\u00A9 OpenStreetMap', max:22, nat:19, sub:'abc', filter:true},
   {n:'Esri Dark Gray', d:'Cleaner, but inland rivers and canals are faint or absent',
    u:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-   a:'\u00A9 Esri', max:20, nat:16, sub:'abc', filter:false}
+   a:'\u00A9 Esri', max:22, nat:16, sub:'abc', filter:false}
 ];
 let baseIdx=0, baseMap=null, baseFails=0;
 
@@ -638,7 +643,7 @@ const SAT_SOURCES=[
   {n:'USGS',u:'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',a:'USGS'},
   {n:'Google',u:'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',a:'Google'}
 ];
-let satIdx=0, baseSat=L.tileLayer(SAT_SOURCES[0].u,{maxZoom:20,maxNativeZoom:19,pane:'baseTiles',attribution:SAT_SOURCES[0].a});
+let satIdx=0, baseSat=L.tileLayer(SAT_SOURCES[0].u,{maxZoom:22,maxNativeZoom:19,pane:'baseTiles',attribution:SAT_SOURCES[0].a});
 let satFails=0;
 function wireSat(){
   satFails=0;
@@ -650,7 +655,7 @@ function wireSat(){
     console.warn('satellite source failed, switching to',s.n);
     const was=map.hasLayer(baseSat);
     if(was) map.removeLayer(baseSat);
-    baseSat=L.tileLayer(s.u,{maxZoom:20,maxNativeZoom:19,pane:'baseTiles',attribution:s.a});
+    baseSat=L.tileLayer(s.u,{maxZoom:22,maxNativeZoom:19,pane:'baseTiles',attribution:s.a});
     wireSat();
     if(was) baseSat.addTo(map);
     document.getElementById('b-sat').textContent='🛰️ Satellite ('+s.n+')';
@@ -725,15 +730,15 @@ const EncDepthLayer = L.TileLayer.extend({
 
 const DEPTH_SOURCES=[
   {n:'Depth contours', kind:'enc',
-   a:'NOAA Office of Coast Survey (ENC)', max:20, nat:20, min:12,
+   a:'NOAA Office of Coast Survey (ENC)', max:22, nat:22, min:12, auto:true,
    note:'Vector nautical chart \u2014 stays sharp however far you zoom in.'},
   {n:'Full NOAA chart', kind:'raster',
    u:'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}',
-   a:'NOAA Office of Coast Survey', max:20, nat:18, zoff:-2, min:2, opaque:true,
+   a:'NOAA Office of Coast Survey', max:22, nat:18, zoff:-2, min:2, opaque:true, auto:true,
    note:'The whole printed chart: channels, marks and hazards. Hides the basemap.'},
   {n:'OpenSeaMap', kind:'raster',
    u:'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
-   a:'OpenSeaMap', max:20, nat:18, zoff:0, min:2,
+   a:'OpenSeaMap', max:22, nat:18, zoff:0, min:2, auto:false,
    note:'Community marine overlay \u2014 marks, buoys and hazards, not full bathymetry.'}
 ];
 let depthIdx=0, depthLayer=null, depthOn=false, depthFails=0, depthLegend=null;
@@ -757,14 +762,23 @@ function buildDepthLayer(){
   }
   depthFails=0;
   l.on('tileerror',()=>{
-    // a handful of missing tiles is normal at the edge of chart coverage;
-    // a wall of them means the source is dead, so move to the next one
-    if(++depthFails<6) return;
-    if(depthIdx>=DEPTH_SOURCES.length-1){
-      depthNote('This chart source is not returning tiles. Depth coverage may be unavailable here.');
+    /* Six errors used to demote the source. That was far too twitchy for ENC:
+       it is rendered to order, so a screenful of tiles at high zoom can have
+       several time out under load while the service is perfectly healthy — and
+       the app would quietly demote the real depth layer all the way down to
+       OpenSeaMap, which carries buoys and marks and NO bathymetry at all. The
+       angler was then looking at a layer called "depths" showing none.
+       Tolerate bursts, and never auto-fall-back onto a source that cannot
+       answer the question: OpenSeaMap is a manual choice only (auto:false). */
+    if(++depthFails<30) return;
+    let nxt=-1;
+    for(let i=depthIdx+1;i<DEPTH_SOURCES.length;i++){ if(DEPTH_SOURCES[i].auto!==false){ nxt=i; break; } }
+    if(nxt<0){
+      depthNote('Charts are not loading here just now. Tap "change" to pick another source.');
+      depthFails=0;                      // let it keep trying rather than give up
       return;
     }
-    depthIdx++;
+    depthIdx=nxt;
     console.warn('depth source failed, switching to',DEPTH_SOURCES[depthIdx].n);
     const was=depthOn;
     if(depthLayer) map.removeLayer(depthLayer);
@@ -1211,6 +1225,27 @@ function classify(tg){
 }
 
 async function identify(lat,lng){
+  /* Pass 0: what you are standing ON.
+     Ranking by tag type alone put natural=water (100) above waterway=canal
+     (80) with distance only ever used to break a tie, so at Moore Haven a tap
+     in the middle of the Caloosahatchee came back "Lake Okeechobee" — the lake
+     outscored the canal from the better part of a mile away, and the same
+     thing happens anywhere a river meets a bay or a sound. If a named river or
+     canal runs within 70 m of the tap, that is the water the angler is on. */
+  const q0 = `[out:json][timeout:15];(`+
+    `way(around:70,${lat},${lng})["waterway"~"^(river|canal|stream|tidal_channel)$"]["name"];`+
+    `);out tags center 12;`;
+  try{
+    const d = await overpass(q0);
+    const near = (d.elements||[]).map(e=>{
+      const tg=e.tags||{};
+      const c = e.center || (e.lat!=null?{lat:e.lat,lon:e.lon}:null);
+      const dist = c ? Math.hypot(c.lat-lat,(c.lon-lng)*Math.cos(lat*Math.PI/180))*111320 : 9e9;
+      return {tg,dist};
+    }).filter(x=>x.tg.name).sort((a,b)=>a.dist-b.dist)[0];
+    if(near) return {name:near.tg.name, type:classify(near.tg), src:'waterway you tapped', tags:near.tg};
+  }catch(e){ console.warn('waterway pass failed',e); }
+
   // Pass 1: which mapped water polygon actually CONTAINS this point
   const q1 = `[out:json][timeout:20];is_in(${lat},${lng})->.a;`+
              `(area.a["natural"="water"];area.a["natural"="bay"];area.a["natural"="strait"];`+
@@ -1241,7 +1276,13 @@ async function identify(lat,lng){
       return {tg,sc,dist};
     }).filter(x=>x.sc>0);
     if(cands.length){
-      cands.sort((a,b)=> (b.sc - a.sc) || (a.dist - b.dist));
+      /* Score and distance together. Score alone meant a large water body
+         anywhere inside the search radius beat the creek or canal under the
+         angler's boat. One point of tag score is worth about 90 m here, so a
+         river at 50 m still wins over a lake at 900 m, while a lake you are
+         actually sitting in still wins over a ditch far away. */
+      cands.forEach(c=>{ c.rank = c.sc - (c.dist*111320)/90; });
+      cands.sort((a,b)=> b.rank - a.rank);
       const b = cands[0];
       return {name:b.tg.name, type:classify(b.tg), src:'nearest named feature', tags:b.tg};
     }
@@ -3015,7 +3056,7 @@ async function toggleRadar(){
        Leaflet stretch outside it costs nothing real: a radar mosaic is about
        1 km per pixel, so there is no detail past zoom 7 to lose. */
     radarLayer=L.tileLayer(f.host+f.frame.path+'/256/{z}/{x}/{y}/2/1_1.png',
-      {opacity:0.62, maxZoom:20, minNativeZoom:4, maxNativeZoom:7,
+      {opacity:0.62, maxZoom:22, minNativeZoom:4, maxNativeZoom:7,
        pane:'radarTiles', attribution:'RainViewer'});
     radarLayer.addTo(map);
     radarOn=true;
