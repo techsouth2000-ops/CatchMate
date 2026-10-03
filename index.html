@@ -323,6 +323,90 @@ button,input,select,textarea{font-family:inherit}
 .dsw.sh{background:#2f6d94}.dsw.dp{background:#0c2334}
 .dlnote{margin-top:7px;padding-top:7px;border-top:1px solid var(--line);color:var(--ink3);
   font-size:9px;line-height:1.55}
+
+/* ============ LANDING ============
+   The landing has to be worth looking at before anyone has posted a catch, so
+   the hero is the day itself: a real moon, drawn to tonight's illumination, and
+   today's feeding windows laid along a 24-hour band. Both are computed on the
+   device from astronomy, so they are present offline, signed out and on day
+   one. Community catches get their own named shelf underneath rather than
+   being the only thing holding the screen up. */
+.lp{position:fixed;inset:0;z-index:4000;background:var(--bg);display:none}
+.lp.on{display:block}
+.lpscroll{height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:0 0 calc(18px + env(safe-area-inset-bottom))}
+.lphead{display:flex;align-items:center;gap:10px;padding:18px 20px 4px}
+.lphead .mark{width:30px;height:30px;flex:none}
+.lpname{font-weight:800;font-size:19px;letter-spacing:-.02em;color:var(--ink)}
+
+.lpday{margin:12px 16px 0;padding:18px 18px 16px;border-radius:18px;
+  background:radial-gradient(130% 100% at 78% 0%,#13364a 0%,#0c2131 46%,#0a1a26 100%);
+  border:1px solid var(--line2)}
+.lpmoonrow{display:flex;align-items:center;gap:15px}
+.lpmoon{flex:none}
+.lpphase{font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--ink);line-height:1.2}
+.lplit{margin-top:4px;font-size:12px;color:var(--ink2);line-height:1.5}
+.lprate{display:inline-block;margin-top:7px;padding:3px 9px;border-radius:999px;
+  font-size:11px;font-weight:700;background:rgba(255,255,255,.07)}
+
+.lpbandlbl{margin:17px 0 7px;font-size:12px;color:var(--ink2)}
+.lpband{position:relative;height:30px;border-radius:7px;background:rgba(255,255,255,.055);
+  overflow:hidden}
+.lpwin{position:absolute;top:0;bottom:0;background:rgba(47,196,158,.34)}
+.lpwin.maj{background:rgba(47,196,158,.62)}
+.lpnight{position:absolute;top:0;bottom:0;background:rgba(0,0,0,.26)}
+.lpnow{position:absolute;top:-3px;bottom:-3px;width:2px;background:#ffd27a;
+  box-shadow:0 0 7px rgba(255,210,122,.85)}
+.lpticks2{display:flex;justify-content:space-between;margin-top:5px;
+  font-size:10px;color:var(--ink3)}
+.lpwins{margin-top:12px;display:flex;flex-wrap:wrap;gap:7px}
+.lpwchip{padding:5px 10px;border-radius:9px;background:rgba(47,196,158,.12);
+  border:1px solid rgba(47,196,158,.3);font-size:12px;color:var(--ink);font-weight:600}
+.lpwchip.minor{background:rgba(255,255,255,.05);border-color:var(--line2);font-weight:500;color:var(--ink2)}
+.lpsun{margin-top:12px;padding-top:11px;border-top:1px solid rgba(255,255,255,.08);
+  font-size:12px;color:var(--ink2);line-height:1.6}
+.lpwhere2{margin-top:7px;font-size:11px;color:var(--ink3);line-height:1.5}
+
+.lpacts{padding:16px 16px 4px;display:grid;gap:9px}
+.lpgo{width:100%;padding:16px;border:0;border-radius:14px;background:var(--acc);color:#05231b;
+  font-weight:800;font-size:16px;cursor:pointer;font-family:inherit}
+.lpgo:active{transform:translateY(1px)}
+.lppair{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.lpsec{padding:13px;border:1px solid var(--line2);border-radius:12px;background:var(--s1);
+  color:var(--ink);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit}
+.lpsec:active{background:var(--s2)}
+.lpgo:focus-visible,.lpsec:focus-visible,.lpcomall:focus-visible,.lpcard:focus-visible{
+  outline:2px solid var(--acc);outline-offset:3px}
+
+.lpcom{margin-top:20px;padding-bottom:6px}
+.lpcomhead{display:flex;align-items:baseline;justify-content:space-between;padding:0 20px 10px}
+.lpcomt{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.lpcomall{background:none;border:0;color:var(--acc);font-size:13px;font-weight:600;
+  cursor:pointer;font-family:inherit;padding:2px}
+.lpstrip{display:flex;gap:11px;overflow-x:auto;padding:2px 20px 6px;
+  scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.lpstrip::-webkit-scrollbar{display:none}
+.lpcard{flex:none;width:148px;scroll-snap-align:start;border:0;padding:0;background:none;
+  cursor:pointer;font-family:inherit;text-align:left}
+.lpthumb{width:148px;height:185px;border-radius:14px;object-fit:cover;display:block;
+  background:#0c2131;border:1px solid var(--line2)}
+.lpcsp{margin-top:8px;font-size:13px;font-weight:700;color:var(--ink);line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lpcmeta{margin-top:3px;font-size:11px;color:var(--ink3);line-height:1.45;
+  overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.lpfirst{flex:none;width:148px;height:185px;border-radius:14px;border:1px dashed var(--line2);
+  background:var(--s1);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:7px;padding:16px;text-align:center;cursor:pointer;font-family:inherit}
+.lpfirsti{font-size:26px}
+.lpfirstt{font-size:12px;color:var(--ink2);line-height:1.5}
+@media(max-width:360px){ .lpcard,.lpthumb,.lpfirst{width:134px} .lpthumb,.lpfirst{height:168px} }
+.flowbx{margin:10px 0;padding:11px 13px;background:var(--s2);border-left:3px solid var(--sec);
+  border-radius:var(--r2);font-size:12px;line-height:1.6;color:var(--ink2)}
+.flowbx.mut{border-left-color:var(--line2);color:var(--ink3)}
+.flowt{font-size:11px;font-weight:800;letter-spacing:.07em;margin-bottom:3px}
+.flowv{color:var(--ink);font-weight:700;font-size:14px;margin-bottom:5px}
+.flowl{color:var(--ink2)}
+.flowm{margin-top:7px;padding-top:7px;border-top:1px solid var(--line);color:var(--ink3);font-size:10px;line-height:1.5}
 .dlnote:empty{display:none}
 /* ENC draws black ink for a white paper chart; invert it so the contours and
    soundings read as white line-work on the dark map instead of vanishing. */
@@ -488,7 +572,9 @@ button,input,select,textarea{font-family:inherit}
     <div class="head">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div>
-          <div class="logo">
+          <div class="logo" onclick="openLanding()" role="button" tabindex="0"
+               aria-label="Back to the Bitecast home screen" style="cursor:pointer"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLanding();}">
             <svg class="mark" viewBox="0 0 64 64" role="img" aria-label="Bitecast">
               <defs>
                 <linearGradient id="bcBg" x1="0" y1="0" x2="1" y2="1">
@@ -512,7 +598,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v36 trip</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v39 day</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -541,6 +627,42 @@ button,input,select,textarea{font-family:inherit}
       </span>
     </div>
     <button class="fab" id="fab" onclick="openLogCatch()">＋ Log a catch</button>
+  </div>
+</div>
+
+
+<div class="lp" id="landing" role="dialog" aria-label="Bitecast home">
+  <div class="lpscroll">
+    <div class="lphead">
+      <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="2" y="2" width="60" height="60" rx="17" fill="#0a1c2c"/>
+        <path d="M21 33.5 6.5 25a24 24 0 0 0 0 17z" fill="#1FA97A"/>
+        <path d="M17 33.5c5.5-10.5 19-14 29.5-8 3.5 2 6 4.8 7 8-1 3.2-3.5 6-7 8-10.5 6-24 2.5-29.5-8z" fill="#3BE0A0"/>
+        <circle cx="45" cy="30" r="3.1" fill="#0a1c2c"/>
+      </svg>
+      <div class="lpname">Bitecast</div>
+    </div>
+
+    <!-- The day itself, drawn. Moon and feeding windows are computed on the
+         device from astronomy, so this is real and present before any network
+         call, any sign-in, and before anyone has posted a single catch. -->
+    <div class="lpday" id="lpday"></div>
+
+    <div class="lpacts">
+      <button class="lpgo" onclick="landingGo()">Take me fishing</button>
+      <div class="lppair">
+        <button class="lpsec" onclick="landingTo('today')">Weather now</button>
+        <button class="lpsec" onclick="landingTo('cond')">Tide times</button>
+      </div>
+    </div>
+
+    <div class="lpcom">
+      <div class="lpcomhead">
+        <div class="lpcomt">Community catches</div>
+        <button class="lpcomall" onclick="landingTo('feed')">See all</button>
+      </div>
+      <div class="lpstrip" id="lpstrip"></div>
+    </div>
   </div>
 </div>
 
@@ -1369,6 +1491,211 @@ async function identify(lat,lng){
   }catch(e){ console.warn('identify failed',e); throw e; }
 
   return {name:null, type:'unk', src:'not found', tags:{}};
+}
+
+
+/* ============ LANDING ============ */
+let LP={shots:[], open:false};
+let PENDING_TAB=null;
+const LP_HOME=[27.6,-81.6];          // Florida, for times before a water is picked
+
+function lpKey(e){ if(e.key==='Escape' && LP.open) landingGo(); }
+function openLanding(){
+  const el=document.getElementById('landing'); if(!el) return;
+  document.addEventListener('keydown', lpKey);
+  el.classList.add('on'); LP.open=true;
+  paintLandingDay();
+  if(!LP.shots.length) loadLandingShots(); else paintStrip();
+}
+function landingGo(){
+  const el=document.getElementById('landing'); if(el) el.classList.remove('on');
+  LP.open=false;
+  document.removeEventListener('keydown', lpKey);
+  if(map) setTimeout(()=>map.invalidateSize(),60);
+}
+function landingTo(tab){
+  PENDING_TAB=tab;
+  landingGo();
+  if(state && state.lat!=null){ setTab(tab); return; }
+  if(tab==='feed'){ return; }          // the feed needs a water first
+  locateMe();
+}
+
+/* A real moon: a dark disc, the lit half, and the terminator drawn as an
+   ellipse that either carves into it (crescent) or fills it out (gibbous). */
+function lpMoonSVG(phase, illum, r){
+  const k=Math.cos(2*Math.PI*phase);          // +1 at new, -1 at full
+  const waxing = phase<0.5;
+  const lit='#e8eef3', dark='#16303f';
+  const half = waxing
+    ? `M 0 ${-r} A ${r} ${r} 0 0 1 0 ${r} Z`
+    : `M 0 ${-r} A ${r} ${r} 0 0 0 0 ${r} Z`;
+  const rx=Math.abs(k)*r;
+  return `<svg class="lpmoon" width="${r*2+4}" height="${r*2+4}" viewBox="${-r-2} ${-r-2} ${r*2+4} ${r*2+4}"
+      role="img" aria-label="Moon, ${Math.round(illum*100)} percent lit">
+    <circle r="${r}" fill="${dark}" stroke="rgba(255,255,255,.14)"/>
+    <path d="${half}" fill="${lit}"/>
+    <ellipse rx="${rx}" ry="${r}" fill="${k>0?dark:lit}"/>
+    <circle r="${r}" fill="none" stroke="rgba(255,255,255,.14)"/>
+  </svg>`;
+}
+
+function paintLandingDay(){
+  const box=document.getElementById('lpday'); if(!box) return;
+  const here = (state && state.lat!=null) ? [state.lat,state.lng] : LP_HOME;
+  const named = !!(state && state.lat!=null && state.name);
+  const now=new Date();
+  let s; try{ s=solunar(here[0],here[1],now); }catch(e){ box.innerHTML=''; return; }
+  const ph=s.phase, pname=phaseName(ph.phase), pct=Math.round(ph.illum*100);
+
+  // lay the day out as a band: midnight to midnight, windows lit
+  const midnight=new Date(now); midnight.setHours(0,0,0,0);
+  const pos=d=>Math.max(0,Math.min(100,((d-midnight)/864e5)*100));
+  let band='';
+  if(s.sun&&s.sun.rise&&s.sun.set){
+    band+=`<div class="lpnight" style="left:0;width:${pos(s.sun.rise)}%"></div>`;
+    band+=`<div class="lpnight" style="left:${pos(s.sun.set)}%;right:0"></div>`;
+  }
+  (s.periods||[]).forEach(p=>{
+    if(!p) return;
+    const l=pos(p.start), w=Math.max(1.2,pos(p.end)-l);
+    band+=`<div class="lpwin ${p.kind==='major'?'maj':''}" style="left:${l}%;width:${w}%"></div>`;
+  });
+  band+=`<div class="lpnow" style="left:${pos(now)}%"></div>`;
+
+  const chips=(s.periods||[]).filter(Boolean).map(p=>
+    `<span class="lpwchip ${p.kind==='major'?'':'minor'}">${p.kind==='major'?'Major':'Minor'} ${esc(fmtT(p.peak))}${p.prime?' · best':''}</span>`
+  ).join('');
+
+  box.innerHTML=
+    `<div class="lpmoonrow">
+       ${lpMoonSVG(ph.phase, ph.illum, 29)}
+       <div>
+         <div class="lpphase">${esc(pname)}</div>
+         <div class="lplit">${pct}% lit</div>
+         <div class="lprate" style="color:${s.rating.c}">${esc(s.rating.t)} moon for feeding</div>
+       </div>
+     </div>
+     <div class="lpbandlbl">Feeding windows today</div>
+     <div class="lpband">${band}</div>
+     <div class="lpticks2"><span>12a</span><span>6a</span><span>noon</span><span>6p</span><span>12a</span></div>
+     <div class="lpwins">${chips||'<span class="lpwchip minor">No clear window today</span>'}</div>
+     <div class="lpsun">First light ${esc(fmtT(s.sun&&s.sun.rise))} · dark ${esc(fmtT(s.sun&&s.sun.set))}</div>
+     <div class="lpwhere2">${named
+        ? 'Times for '+esc(state.name)+'.'
+        : 'Times for central Florida. Pick your water for exact ones.'}</div>`;
+}
+
+async function loadLandingShots(){
+  if(!sb){ paintStrip(); return; }
+  try{
+    const {data,error}=await sb.from('public_catches')
+      .select('species,water_body,photo_path,username,caught_at,created_at,length_in')
+      .not('photo_path','is',null)
+      .order('created_at',{ascending:false}).limit(12);
+    if(error) throw error;
+    LP.shots=(data||[]).filter(c=>c.photo_path);
+  }catch(e){ LP.shots=[]; }
+  paintStrip();
+}
+
+function paintStrip(){
+  const el=document.getElementById('lpstrip'); if(!el) return;
+  if(!LP.shots.length){
+    el.innerHTML=`<button class="lpfirst" onclick="landingGo();openLogCatch()">
+        <div class="lpfirsti">🎣</div>
+        <div class="lpfirstt">No catches shared yet. Post the first one.</div>
+      </button>`;
+    return;
+  }
+  el.innerHTML=LP.shots.map(c=>{
+    const when=ago((c.caught_at||c.created_at||'').slice(0,10));
+    const bits=[];
+    if(c.water_body) bits.push(esc(c.water_body));
+    if(when) bits.push(esc(when));
+    return `<button class="lpcard" onclick="landingTo('feed')">
+        <img class="lpthumb" src="${esc(photoURL(c.photo_path))}" alt="" loading="lazy"
+             onerror="this.style.visibility='hidden'">
+        <div class="lpcsp">${esc(titleCase(c.species||'A catch'))}</div>
+        <div class="lpcmeta">${bits.join('<br>')}</div>
+      </button>`;
+  }).join('');
+}
+
+/* ============ STRUCTURE FLOW (USGS Instantaneous Values) ============
+   On a managed system like the Caloosahatchee the single most useful fact at a
+   spillway is whether it is running. USGS gauges most of these structures and
+   publishes discharge every 15 minutes, free and without a key.
+
+   Negative discharge is not an error here: these canals are gated and tidally
+   influenced, so a minus sign means the water is pushing BACK toward the lake.
+   Verified live against site 02292010, "Caloosahatchee Canal DWS of S-77 at
+   Moore Haven", on 2026-10-03. */
+const USGS='https://waterservices.usgs.gov/nwis';
+
+async function flowNear(lat,lng){
+  const d=0.18;                                   // ~12 miles, keeps the search cheap
+  const bb=[(lng-d).toFixed(4),(lat-d).toFixed(4),(lng+d).toFixed(4),(lat+d).toFixed(4)].join(',');
+  let sites=[];
+  try{
+    const txt=await Promise.race([
+      fetch(`${USGS}/site/?format=rdb&bBox=${bb}&parameterCd=00060&siteStatus=active`).then(r=>r.text()),
+      timeout(9000)]);
+    sites=txt.split('\n').filter(l=>l && l[0]!=='#').slice(2)
+      .map(l=>l.split('\t'))
+      .filter(c=>c.length>6 && c[1] && !isNaN(parseFloat(c[4])))
+      .map(c=>({id:c[1], name:c[2], lat:parseFloat(c[4]), lng:parseFloat(c[5])}))
+      .filter(s=>!isNaN(s.lat)&&!isNaN(s.lng));
+  }catch(e){ return null; }
+  if(!sites.length) return {none:true};
+  sites.forEach(s=>s.km=haversineKm(lat,lng,s.lat,s.lng));
+  sites.sort((a,b)=>a.km-b.km);
+  const site=sites[0];
+  try{
+    const j=await getJSON(`${USGS}/iv/?format=json&sites=${site.id}&parameterCd=00060,00065&period=P7D`,12000);
+    const ts=(j&&j.value&&j.value.timeSeries)||[];
+    const pick=code=>ts.find(t=>t.variable&&t.variable.variableCode&&t.variable.variableCode[0].value===code);
+    const series=v=>((v&&v.values&&v.values[0]&&v.values[0].value)||[])
+      .map(x=>({v:parseFloat(x.value), t:x.dateTime}))
+      // USGS writes -999999 for "no data". The old guard was x.v > -1e6, and
+      // -999999 is greater than -1e6, so every no-data point sailed through
+      // and could be presented as a reading.
+      .filter(x=>!isNaN(x.v) && x.v>-999998);
+    const q=series(pick('00060')), g=series(pick('00065'));
+    if(!q.length) return {none:true, site};
+    const last=q[q.length-1], vals=q.map(x=>x.v);
+    return {site, cfs:last.v, at:last.t,
+            stage: g.length? g[g.length-1].v : null,
+            min7: Math.min(...vals), max7: Math.max(...vals),
+            typical: vals.slice().sort((a,b)=>a-b)[Math.floor(vals.length/2)]};
+  }catch(e){ return null; }
+}
+
+/* Plain language, because "121 cfs" means nothing to most people. The bands are
+   relative to this structure's own past week rather than invented absolutes —
+   what counts as a lot of water is completely different at every gate. */
+function flowRead(f){
+  if(!f || f.none || f.cfs==null) return null;
+  const v=f.cfs, mag=Math.abs(v);
+  const span=Math.max(Math.abs(f.max7), Math.abs(f.min7), 1);
+  const share=mag/span;
+  const dir = v>0 ? 'downstream' : v<0 ? 'reversed, pushing back upstream' : 'still';
+  let state, what;
+  if(mag<5){
+    state='not running';
+    what='The gates are effectively shut. Without flow there is no seam and no conveyor belt of stunned bait, so fish scatter off the structure — this is the worst time to fish it.';
+  } else if(share<0.25){
+    state='barely moving';
+    what='A trickle. Enough to hold a few fish on the seam, but nothing like the feeding window a real release brings.';
+  } else if(share<0.7){
+    state='running';
+    what='Water is moving properly. Bait is being carried through and fish will be sitting in the seams either side of the chute rather than out in the open.';
+  } else {
+    state='running hard';
+    what='A big release. The boil itself may be unfishable, but the eddies either side and the first slack water downstream can be outstanding. Mind your footing and your anchor.';
+  }
+  if(v<0) what+=' Flow is reversed right now, so the bait is moving the other way — work the upstream side.';
+  return {state, dir, what, mag, v};
 }
 
 /* ============ FISH RECORDS (iNaturalist) ============ */
@@ -3300,6 +3627,14 @@ function gotoSpot(i){
    tide:  which stage switches it on   sun: which light switches it on
    Written from standard inshore angling practice, not invented. */
 const STRUCTURE = {
+  spillway: {icon:'💧', label:'Spillway / dam', base:10, tide:'moving', sun:'any',
+    why:'When the gates are open everything in the pool above gets flushed through in one narrow chute — shad, shiners, crabs, the lot, most of it stunned. Fish stack in the boil and the seams either side and feed without hunting. When the gates are shut it is just a wall, and the fish scatter.',
+    how:'Work the seam where the white water meets the slack, not the boil itself. Let a jig or live bait tumble through naturally. The down-current eddies either side hold the bigger fish; the chute holds the hungry ones.',
+    species:['snook','tarpon','largemouthbass','crappie','catfish']},
+  lock:     {icon:'🔒', label:'Lock', base:8, tide:'moving', sun:'any',
+    why:'Every lock cycle dumps a slug of water and whatever was riding in it. The walls give vertical structure in otherwise featureless canal, and the turbulence keeps bait disoriented.',
+    how:'Fish the downstream wall and the slack behind the fenders between cycles. Stay well clear of the gates and of any vessel under way.',
+    species:['snook','largemouthbass','catfish','crappie']},
   inlet:    {icon:'🌊', label:'Pass / inlet', base:9, tide:'falling', sun:'any',
     why:'A pass funnels every bit of water leaving the bay through one narrow gap. Bait has no choice but to ride it out, and predators sit in the edges waiting.',
     how:'Anchor or drift the edge of the main current, not the middle. Cast up-current and let the bait wash down naturally with the flow.',
@@ -3388,6 +3723,7 @@ async function fetchSpots(lat,lng,radiusM,tmo){
      structure here". Collapsing related tags into regex alternatives takes it
      from twelve passes to six for the same results. */
   const q=`[out:json][timeout:${tmo||25}];(`+
+    `nwr(around:${r},${ll})["waterway"~"^(weir|dam|lock_gate|sluice_gate)$"];`+
     `nwr(around:${r},${ll})["natural"~"^(strait|cape|reef|shoal)$"];`+
     `nwr(around:${r},${ll})["wetland"~"^(mangrove|tidalflat)$"];`+
     `nwr(around:${r},${ll})["man_made"~"^(pier|breakwater|groyne)$"];`+
@@ -3402,7 +3738,9 @@ async function fetchSpots(lat,lng,radiusM,tmo){
     const c=e.center||(e.lat!=null?{lat:e.lat,lon:e.lon}:null);
     if(!c) return;
     let k=null;
-    if(t.natural==='strait') k='inlet';
+    if(/^(weir|dam|sluice_gate)$/.test(t.waterway||'')) k='spillway';
+    else if(t.waterway==='lock_gate') k='lock';
+    else if(t.natural==='strait') k='inlet';
     else if(t.natural==='cape') k='point';
     else if(t.natural==='reef') k='reef';
     else if(t.natural==='shoal') k='shoal';
@@ -3501,12 +3839,19 @@ function bandFor(score,mismatch){
 }
 
 let SPOTS=null, SPOTS_ERR=null, SPOTS_NARROW=false, spotLayer=null;
+let FLOW=null, FLOW_DONE=false;
 
 async function loadSpots(){
   const st=state||{};
   if(st.lat==null) return;
   SPOTS_ERR=null; SPOTS=null; SPOTS_NARROW=false;
   if(state.tab==='spots') render();
+  /* Flow is fetched independently: it is the single most useful fact at a
+     spillway, so it must not be lost when the structure query fails. */
+  if(!FLOW_DONE){
+    flowNear(st.lat,st.lng).then(f=>{ FLOW=f; FLOW_DONE=true; if(state.tab==='spots') render(); })
+                           .catch(()=>{ FLOW_DONE=true; });
+  }
   try{
     /* Overpass mirrors are genuinely flaky — one can be timing out while
        another answers fine. Give it a second, cheaper go before telling the
@@ -3581,6 +3926,7 @@ function spotsHTML(){
   h+=`<div class="sctx">${bits.map(b=>esc(b)).join(' · ')}</div>`;
   h+=`<div class="hint">Structure within ${SPOTS_NARROW?'3.5':'7'} miles, ranked against those conditions. Every spot says why it made the list — and why it might not be the one today.${SPOTS_NARROW?' <b>OpenStreetMap was busy, so this is the closer-in search.</b>':''}</div>`;
 
+  h+=flowHTML();
   if(SPOTS_ERR) h+=msg('Could not load structure: '+SPOTS_ERR);
   if(SPOTS===null) return h+`<div class="nod"><span class="spin"></span>Reading the structure around here…</div>`;
   if(!SPOTS.length){
@@ -3614,6 +3960,29 @@ function spotsHTML(){
   });
   h+=`<div class="foot">Structure from OpenStreetMap. Ranking is a reading of tide stage, daylight and feeding periods against how each kind of structure normally fishes — it is a starting point, not a guarantee. Local knowledge beats it every time.</div>`;
   return h;
+}
+
+function flowHTML(){
+  if(!FLOW_DONE && FLOW===null) return `<div class="flowbx"><span class="spin"></span> Checking whether the gates are running…</div>`;
+  if(!FLOW || FLOW.none){
+    return FLOW_DONE && FLOW && FLOW.none
+      ? `<div class="flowbx mut">No USGS flow gauge within about 12 miles, so Bitecast cannot tell you whether anything is being released here.</div>`
+      : '';
+  }
+  const r=flowRead(FLOW); if(!r) return '';
+  const age=Math.round((Date.now()-new Date(FLOW.at).getTime())/60000);
+  const col = r.state==='not running' ? '#8b95a1'
+            : r.state==='barely moving' ? '#b08a2e'
+            : r.state==='running hard' ? '#d6a93e' : '#2fc49e';
+  return `<div class="flowbx" style="border-left-color:${col}">
+      <div class="flowt" style="color:${col}">💧 ${esc(r.state.toUpperCase())}</div>
+      <div class="flowv">${Math.round(r.mag).toLocaleString()} ft³/s ${esc(r.dir)}${
+        FLOW.stage!=null?` · stage ${FLOW.stage.toFixed(2)} ft`:''}</div>
+      <div class="flowl">${esc(r.what)}</div>
+      <div class="flowm">${esc(FLOW.site.name)} · reading ${age<90?age+' min':Math.round(age/60)+' h'} old
+        · past week ${Math.round(FLOW.min7).toLocaleString()} to ${Math.round(FLOW.max7).toLocaleString()} ft³/s
+        · USGS provisional</div>
+    </div>`;
 }
 
 function spotDetail(s,b){
@@ -3922,11 +4291,13 @@ async function lookup(lat,lng,radiusOverride){
   const offline = (!data.counts.length && !!data.err && !!gaz);
 
   state = {name:id.name, type:id.type, idsrc:id.src, lat, lng, radius,
-           counts:data.counts, recent:data.recent, tab:'today', condDay:'today', dayOff:0,
+           counts:data.counts, recent:data.recent,
+           tab:(PENDING_TAB||'today'), condDay:'today', dayOff:0,
            fishErr:data.err, idErr, offline, fallbackSp: gaz?gaz.sp:null,
            tide:null, tideErr:null};
+  PENDING_TAB=null;
   FEED=null; FEED_ERR=null;
-  SPOTS=null; SPOTS_ERR=null;
+  SPOTS=null; SPOTS_ERR=null; FLOW=null; FLOW_DONE=false;
   if(spotLayer){ map.removeLayer(spotLayer); spotLayer=null; }
   render();
 
@@ -3974,6 +4345,10 @@ function locateMe(){
     out().innerHTML='<div class="err">'+esc(msg)+'</div>';
   }, {enableHighAccuracy:true, timeout:12000, maximumAge:60000});
 }
+
+/* Open on the home screen. Someone who has already picked their water in this
+   session goes straight back to it rather than being sent round again. */
+openLanding();
 </script>
 </body>
 </html>
