@@ -628,7 +628,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v49 bt-gap</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v50 lakes</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -918,10 +918,17 @@ const EncDepthLayer = L.Layer.extend({
     let w=Math.max(1,Math.round(size.x*r)), hh=Math.max(1,Math.round(size.y*r));
     const cap=this.options.maxPx, big=Math.max(w,hh);
     if(big>cap){ const k=cap/big; w=Math.round(w*k); hh=Math.round(hh*k); }
-    const band=ENC_BANDS[this.options.band!=null?this.options.band:encBand];
-    const url=ENC_ROOT+band.svc+'/MapServer/export?bbox='+[sw.x,sw.y,ne.x,ne.y].join(',')+
+    /* Any ArcGIS MapServer draws the same way, so the layer is no longer tied
+       to the NOAA chart: give it a service and the layer ids to show. */
+    let svc, show;
+    if(this.options.svc){ svc=this.options.svc; show=this.options.layers; }
+    else {
+      const band=ENC_BANDS[this.options.band!=null?this.options.band:encBand];
+      svc=ENC_ROOT+band.svc+'/MapServer'; show=band.snd+','+band.cnt;
+    }
+    const url=svc+'/export?bbox='+[sw.x,sw.y,ne.x,ne.y].join(',')+
       '&bboxSR=3857&imageSR=3857&size='+w+','+hh+'&format=png32&transparent=true'+
-      '&layers=show:'+band.snd+','+band.cnt+'&dpi='+this.options.dpi+'&f=image';
+      '&layers=show:'+show+'&dpi='+this.options.dpi+'&f=image';
     const self=this;
     const ov=L.imageOverlay(url, b, {opacity:this.options.opacity, pane:this.options.pane,
                                      className:this.options.className, interactive:false});
@@ -946,6 +953,15 @@ const DEPTH_SOURCES=[
   {n:'BlueTopo depth shading', kind:'bluetopo',
    a:'NOAA National Bathymetric Source', max:22, nat:16, min:6, auto:false,
    note:'NOAA\u2019s high-resolution seafloor model \u2014 continuous depth shading rather than charted soundings. Saltwater only.'},
+  /* Inland water. NOAA charts stop at the Okeechobee Waterway and BlueTopo
+     only exists where NOAA surveyed, so the lakes an angler actually fishes
+     were blank. FWC surveyed a long list of them; verified live, keyless,
+     contours already in FEET. It does NOT include Lake Okeechobee. */
+  {n:'Florida lake contours', kind:'fwc',
+   svc:'https://gis.myfwc.com/hosting/rest/services/Open_Data/Bathymetry_of_Select_Lakes_in_Florida/MapServer',
+   lyr:'3', a:'FWC — Bathymetry of Select Lakes in Florida',
+   max:22, min:9, auto:false,
+   note:'Freshwater lake depth contours in feet, surveyed by FWC. Covers many Florida lakes — not Lake Okeechobee, and not rivers or canals.'},
   {n:'Full NOAA chart', kind:'raster',
    u:'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}',
    a:'NOAA Office of Coast Survey', max:22, nat:18, zoff:-2, min:2, opaque:true, auto:true,
@@ -966,6 +982,9 @@ function buildDepthLayer(){
        a layer that appears and one that seems not to work, so only ask for
        tiles once the map has settled, and keep little off-screen buffer. */
     l=new EncDepthLayer({minZoom:s.min, band:null, opacity:1,
+                         pane:'depthTiles', className:'encinv', attribution:s.a});
+  } else if(s.kind==='fwc'){
+    l=new EncDepthLayer({minZoom:s.min, svc:s.svc, layers:s.lyr, opacity:1,
                          pane:'depthTiles', className:'encinv', attribution:s.a});
   } else if(s.kind==='bluetopo'){
     /* Built from whatever discovery actually found, never from a guess. Until
@@ -1112,7 +1131,43 @@ function depthStatus(){
   const s=DEPTH_SOURCES[depthIdx];
   if(s.kind==='enc')      return checkDepthCoverage();
   if(s.kind==='bluetopo') return checkBlueTopo();
+  if(s.kind==='fwc')      return checkLakeCoverage();
   depthNote('');          // raster chart and OpenSeaMap speak for themselves
+}
+
+/* FWC surveyed a list of lakes, not every lake, and certainly not Lake
+   Okeechobee. Ask the service about THIS water rather than letting the angler
+   conclude from a blank screen that the app is broken. */
+async function checkLakeCoverage(){
+  const s=DEPTH_SOURCES[depthIdx];
+  if(s.kind!=='fwc') return;
+  const c=map.getCenter();
+  depthNote('Checking FWC lake surveys here…');
+  const q=s.svc+'/'+s.lyr+'/query?geometry='+c.lng+','+c.lat+
+    '&geometryType=esriGeometryPoint&inSR=4326&distance=4000&units=esriSRUnit_Meter'+
+    '&spatialRel=esriSpatialRelIntersects&outFields=DEPTHF&returnGeometry=false'+
+    '&resultRecordCount=400&f=json';
+  try{
+    const d=await Promise.race([fetch(q).then(r=>r.json()), timeout(12000)]);
+    if(DEPTH_SOURCES[depthIdx].kind!=='fwc') return;      // they switched away
+    if(d && d.error) throw new Error(d.error.message||'service error');
+    const f=(d&&d.features)||[];
+    if(!f.length){
+      depthNote('FWC has not surveyed this water. Their set covers a long list of Florida lakes '+
+                'but not Lake Okeechobee, and no rivers or canals. On the Okeechobee Waterway '+
+                '— the Caloosahatchee, the rim route, the St Lucie — tap "change" and use Depth contours.');
+      return;
+    }
+    /* FWC stores depth as a negative value below the surface. */
+    const v=f.map(x=>Math.abs(+x.attributes.DEPTHF)).filter(n=>!isNaN(n));
+    depthNote(v.length
+      ? 'FWC surveyed this lake — contours from '+Math.min(...v).toFixed(0)+' to '+
+        Math.max(...v).toFixed(0)+' ft within a couple of miles. Lines in feet below the surface; '+
+        'where they bunch is your drop.'
+      : 'FWC surveyed this lake. Contours are in feet below the surface.');
+  }catch(e){
+    depthNote('Could not reach the FWC lake survey service just now.');
+  }
 }
 
 /* NOAA charts only exist for tidal and coastal water. Inland lakes, ponds and
@@ -1243,7 +1298,10 @@ function paintDepthLegend(){
          surface built from survey data \u2014 it has no printed soundings and no
          contour lines, so explaining how to read those under its name told
          the angler to look for marks that were never going to appear. */
-      (s.kind==='bluetopo'
+      (s.kind==='fwc'
+        ? '<div class="dlr"><span class="dline"></span> each line is one foot of depth below the lake surface — where they bunch together the bottom drops away fast, and that drop is where fish hold</div>'+
+          '<div class="dlnote">Surveyed by <b>FWC</b>, already in <b>feet</b> below the surface — no tide to allow for. Covers a long list of Florida lakes, but <b>not Lake Okeechobee</b>, and no rivers or canals.</div>'
+      : s.kind==='bluetopo'
         ? '<div class="dlr"><span class="dline"></span> shading is depth itself \u2014 darker is deeper. Read the <b>edges</b>: where the shade changes over a short distance the bottom drops away fast, and that drop is where fish hold</div>'+
           '<div class="dlnote">This is surveyed depth from NOAA\u2019s National Bathymetric Source, not a printed chart \u2014 far more detail where a survey exists, and <b>nothing at all where one does not</b>. It covers open coastal water; most rivers and inland canals are blank. Use it to find the drop, and the chart to navigate.</div>'
         : '<div class="dlr"><b>3<sub>6</sub></b> a printed number is a sounding: the charted depth at that spot</div>'+
@@ -2346,6 +2404,7 @@ async function runDiagnostics(){
         detail: b.err || ((b.title||b.layer)+' · '+b.tms)}))],
     ['NOAA ENC (depth contours)', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/encdirect/enc_harbour/MapServer/export?bbox=-9150000,3100000,-9145000,3105000&bboxSR=3857&imageSR=3857&size=64,64&format=png32&transparent=true&layers=show:76,104&f=image')],
     ['NOAA raster charts', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/10/1732/1113')],
+    ['FWC lake contours', probeImage('https://gis.myfwc.com/hosting/rest/services/Open_Data/Bathymetry_of_Select_Lakes_in_Florida/MapServer/export?bbox=-9060000,3180000,-9050000,3190000&bboxSR=3857&imageSR=3857&size=64,64&format=png32&transparent=true&layers=show:3&f=image')],
     ['OpenSeaMap (marine overlay)', probeImage('https://tiles.openseamap.org/seamark/12/1113/1732.png')]
   ];
   /* Find the rows by name, never by position. Adding a single row above
