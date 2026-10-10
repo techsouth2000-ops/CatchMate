@@ -628,7 +628,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v40 area</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v41 bluetopo</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -943,6 +943,9 @@ const DEPTH_SOURCES=[
   {n:'Depth contours', kind:'enc',
    a:'NOAA Office of Coast Survey (ENC)', max:22, nat:22, min:12, auto:true,
    note:'Vector nautical chart \u2014 stays sharp however far you zoom in.'},
+  {n:'BlueTopo depth shading', kind:'bluetopo',
+   a:'NOAA National Bathymetric Source', max:22, nat:16, min:6, auto:false,
+   note:'NOAA\u2019s high-resolution seafloor model \u2014 continuous depth shading rather than charted soundings. Saltwater only.'},
   {n:'Full NOAA chart', kind:'raster',
    u:'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}',
    a:'NOAA Office of Coast Survey', max:22, nat:18, zoff:-2, min:2, opaque:true, auto:true,
@@ -964,6 +967,28 @@ function buildDepthLayer(){
        tiles once the map has settled, and keep little off-screen buffer. */
     l=new EncDepthLayer({minZoom:s.min, band:null, opacity:1,
                          pane:'depthTiles', className:'encinv', attribution:s.a});
+  } else if(s.kind==='bluetopo'){
+    /* Built from whatever discovery actually found, never from a guess. Until
+       it has answered there is nothing to draw, so hand back an empty layer
+       and let discovery swap in the real one. */
+    if(BT && BT.url){
+      l=L.tileLayer(BT.url,{maxZoom:s.max,maxNativeZoom:s.nat,minZoom:s.min,
+                            opacity:0.8,pane:'depthTiles',attribution:s.a});
+    } else {
+      l=L.layerGroup([]);   // LayerGroup is an Evented, so the handlers below still bind
+      discoverBlueTopo().then(bt=>{
+        if(DEPTH_SOURCES[depthIdx].kind!=='bluetopo') return;
+        if(bt.err){
+          depthNote('BlueTopo is not available here \u2014 '+bt.err+'. Tap "change" to go back to the charts.');
+          return;
+        }
+        depthNote('BlueTopo layer: '+bt.title+'. Shading is depth, not charted soundings.');
+        const was=depthOn;
+        if(depthLayer) map.removeLayer(depthLayer);
+        depthLayer=buildDepthLayer();
+        if(was){ depthLayer.addTo(map); paintDepthLegend(); }
+      });
+    }
   } else {
     l=L.tileLayer(s.u,{maxZoom:s.max,maxNativeZoom:s.nat||s.max,minZoom:s.min||0,
                        zoomOffset:s.zoff||0,opacity:s.opaque?0.95:0.85,
@@ -1739,6 +1764,78 @@ function paintStrip(){
   }).join('');
 }
 
+/* ============ BLUETOPO (NOAA National Bathymetric Source) ============
+   BlueTopo is NOAA's modern high-resolution seafloor elevation model, free and
+   in the US public domain, with the Gulf and Atlantic complete. It is a
+   continuous depth grid rather than charted soundings, which is what makes the
+   shaded relief that commercial cards are built on.
+
+   The layer is DISCOVERED rather than hard-coded. nowCOAST is unreachable from
+   where this app was written, and guessing an endpoint has broken this app
+   three times already — so the app asks the service what it actually serves,
+   finds the BlueTopo layer itself, and says plainly what it found. A wrong
+   guess becomes an honest "not available here" instead of a dead layer. */
+const NOWCOAST_WMTS='https://nowcoast.noaa.gov/geoserver/gwc/service/wmts';
+let BT=null;              // null = not tried, {…} = found, {err} = tried and failed
+
+async function discoverBlueTopo(){
+  if(BT) return BT;
+  try{
+    const xml=await Promise.race([
+      fetch(NOWCOAST_WMTS+'?SERVICE=WMTS&REQUEST=GetCapabilities').then(r=>{
+        if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); }),
+      timeout(15000)]);
+    const doc=new DOMParser().parseFromString(xml,'text/xml');
+    if(doc.querySelector('parsererror')) throw new Error('capabilities were not valid XML');
+    const layers=[...doc.getElementsByTagNameNS('*','Layer')];
+    const txt=(el,tag)=>{ const n=el.getElementsByTagNameNS('*',tag)[0]; return n?n.textContent.trim():''; };
+
+    // prefer an elevation or shaded-relief BlueTopo layer over uncertainty or contributor
+    const cands=layers.map(L=>({L, id:txt(L,'Identifier'), title:txt(L,'Title')}))
+      .filter(c=>/bluetopo|bathymetr/i.test(c.id+' '+c.title))
+      .sort((a,b)=>score(b)-score(a));
+    function score(c){
+      const s=(c.id+' '+c.title).toLowerCase();
+      let v=0;
+      if(/elev|depth|relief|hillshade|shaded/.test(s)) v+=3;
+      if(/uncertain|contributor|source|tile_?scheme/.test(s)) v-=5;
+      return v;
+    }
+    if(!cands.length) throw new Error('no BlueTopo layer is published here');
+    const c=cands[0], el=c.L;
+
+    // a web-mercator tile matrix set, so it lines up with everything else
+    const sets=[...el.getElementsByTagNameNS('*','TileMatrixSetLink')]
+      .map(n=>txt(n,'TileMatrixSet')).filter(Boolean);
+    const tms=sets.find(s=>/GoogleMapsCompatible|WebMercatorQuad|3857|900913/i.test(s));
+    if(!tms) throw new Error('no web-mercator tile set (offered: '+(sets.join(', ')||'none')+')');
+
+    const fmts=[...el.getElementsByTagNameNS('*','Format')].map(n=>n.textContent.trim());
+    const fmt=fmts.find(f=>/png/i.test(f))||fmts[0]||'image/png';
+
+    // RESTful template if the service gives one, otherwise key-value pairs
+    const res=[...el.getElementsByTagNameNS('*','ResourceURL')]
+      .find(n=>n.getAttribute('resourceType')==='tile' && /png|jpe?g/i.test(n.getAttribute('format')||fmt));
+    let url;
+    if(res && res.getAttribute('template')){
+      url=res.getAttribute('template')
+        .replace('{TileMatrixSet}',tms).replace('{TileMatrix}','{z}')
+        .replace('{TileRow}','{y}').replace('{TileCol}','{x}').replace('{Style}','')
+        .replace(/([^:])\/\/+/g,'$1/');     // the empty style segment leaves a double slash
+    } else {
+      url=NOWCOAST_WMTS+'?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'+
+          '&LAYER='+encodeURIComponent(c.id)+'&STYLE=&FORMAT='+encodeURIComponent(fmt)+
+          '&TILEMATRIXSET='+encodeURIComponent(tms)+
+          '&TILEMATRIX='+encodeURIComponent(tms)+':{z}&TILEROW={y}&TILECOL={x}';
+    }
+    BT={url, layer:c.id, title:c.title||c.id, tms, fmt,
+        all:cands.slice(0,6).map(x=>x.id)};
+  }catch(e){
+    BT={err:e.message||'could not reach nowCOAST'};
+  }
+  return BT;
+}
+
 /* ============ STRUCTURE FLOW (USGS Instantaneous Values) ============
    On a managed system like the Caloosahatchee the single most useful fact at a
    spillway is whether it is running. USGS gauges most of these structures and
@@ -1947,11 +2044,15 @@ async function runDiagnostics(){
        previously replaced a correct probe with one that really was wrong and
        reported the charts blocked every time. The indices here are web zoom
        12 over Matlacha Pass, where charts are known to render. */
+    ['BlueTopo (NOAA bathymetry)', discoverBlueTopo().then(b=>!b.err)],
     ['NOAA ENC (depth contours)', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/encdirect/enc_harbour/MapServer/export?bbox=-9150000,3100000,-9145000,3105000&bboxSR=3857&imageSR=3857&size=64,64&format=png32&transparent=true&layers=show:76,104&f=image')],
     ['NOAA raster charts', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/10/1732/1113')],
     ['OpenSeaMap (marine overlay)', probeImage('https://tiles.openseamap.org/seamark/12/1113/1732.png')]
   ];
-  const CHART_FROM=8;                     // index of the first chart source above
+  /* Find the rows by name, never by position. Adding a single row above
+     shifted a hard-coded index and made the verdict judge the wrong service. */
+  const CHART_FROM=tests.findIndex(t=>/BlueTopo|NOAA|OpenSeaMap/.test(t[0]));
+  const DEPTH_ROW=tests.findIndex(t=>/depth contours/i.test(t[0]));                     // index of the first chart source above
   const results=await Promise.all(tests.map(t=>t[1]));
   const blocked=results.filter((r,i)=>i>=3&&i<=4&&!r).length;
   const charts=results.slice(CHART_FROM);
@@ -1978,7 +2079,7 @@ async function runDiagnostics(){
      other two are alternatives you can pick by hand, so counting them equally
      produced a warning telling the angler to go and change sources while the
      real one was working perfectly. Judge on the one that matters. */
-  const depthOk=results[CHART_FROM];
+  const depthOk=results[DEPTH_ROW];        // the layer the app actually draws
   if(!depthOk && !chartsOk){
     h+=`<div class="err" style="margin-top:12px">
       No chart source is answering, so the 🌊 fishing map will have nothing to draw.
