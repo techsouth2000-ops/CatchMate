@@ -628,7 +628,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v46 bt-why</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v47 bt-style</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -976,7 +976,15 @@ function buildDepthLayer(){
                             opacity:0.8,pane:'depthTiles',attribution:s.a});
       /* Count from the moment the layer exists. Tiles fail fast, so a watcher
          that only attaches later sees nothing and calls a dead layer "idle". */
-      l._btLoaded=0; l._btErrored=0; l._btBad=null; l._btOk=null;
+      l._btLoaded=0; l._btErrored=0; l._btBad=null; l._btOk=null; l._btThrew=null;
+      /* A template Leaflet cannot fill throws inside tile creation, which
+         aborts the whole update: no tiles, no load events, no error events,
+         nothing in the layer to measure. Catch it so it is reportable. */
+      const baseUrl=L.TileLayer.prototype.getTileUrl;
+      l.getTileUrl=function(c){
+        try{ return baseUrl.call(this,c); }
+        catch(e){ if(!l._btThrew) l._btThrew=e.message||'bad tile template'; return L.Util.emptyImageUrl; }
+      };
       l.on('tileload',e=>{ l._btLoaded++; if(!l._btOk&&e.tile) l._btOk=e.tile.src; });
       l.on('tileerror',e=>{ l._btErrored++; if(!l._btBad&&e.tile) l._btBad=e.tile.src; });
       l.on('add',()=>{ clearTimeout(window.__btT); window.__btT=setTimeout(checkBlueTopo,1200); });
@@ -1828,6 +1836,7 @@ function paintStrip(){
    guess becomes an honest "not available here" instead of a dead layer. */
 const NOWCOAST_WMTS='https://nowcoast.noaa.gov/geoserver/gwc/service/wmts';
 let BT=null;              // null = not tried, {…} = found, {err} = tried and failed
+let BT_TPL_LEFT='';       // placeholders the service used that we could not fill
 
 async function discoverBlueTopo(){
   if(BT) return BT;
@@ -1871,11 +1880,24 @@ async function discoverBlueTopo(){
       .find(n=>n.getAttribute('resourceType')==='tile' && /png|jpe?g/i.test(n.getAttribute('format')||fmt));
     let url;
     if(res && res.getAttribute('template')){
-      url=res.getAttribute('template')
-        .replace('{TileMatrixSet}',tms).replace('{TileMatrix}','{z}')
-        .replace('{TileRow}','{y}').replace('{TileCol}','{x}').replace('{Style}','')
-        .replace(/([^:])\/\/+/g,'$1/');     // the empty style segment leaves a double slash
-    } else {
+      /* WMTS placeholder names are not case-consistent between servers, and
+         GeoServer writes {style} in lower case. Matching only "{Style}" left
+         {style} in the template, and Leaflet THROWS on a placeholder it has
+         no value for — inside tile creation, so the update died before a
+         single tile existed and the layer reported no tiles, no loads and no
+         errors. Match case-insensitively and globally. */
+      const sub=[[/\{TileMatrixSet\}/gi,tms],[/\{TileMatrix\}/gi,'{z}'],
+                 [/\{TileRow\}/gi,'{y}'],[/\{TileCol\}/gi,'{x}'],
+                 [/\{Style\}/gi,''],[/\{layer\}/gi,c.id]];
+      url=sub.reduce((u,[re,v])=>u.replace(re,v), res.getAttribute('template'))
+             .replace(/([^:])\/\/+/g,'$1/');   // the empty style segment leaves a double slash
+      /* Anything still in braces would throw on every tile. Better to fall
+         back to the key-value form, which has no placeholders we did not
+         write ourselves, than to ship a layer that cannot draw. */
+      const left=url.match(/\{(?!([xyzs])\})[^}]*\}/g);
+      if(left) url=null, BT_TPL_LEFT=left.join(' ');
+    }
+    if(!url){
       url=NOWCOAST_WMTS+'?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'+
           '&LAYER='+encodeURIComponent(c.id)+'&STYLE=&FORMAT='+encodeURIComponent(fmt)+
           '&TILEMATRIXSET='+encodeURIComponent(tms)+
@@ -1961,7 +1983,7 @@ function watchBlueTopoTiles(ms){
       const z=map.getZoom(), o=depthLayer.options||{};
       res({loaded:depthLayer._btLoaded||0, errored:depthLayer._btErrored||0,
            okUrl:depthLayer._btOk||null, badUrl:depthLayer._btBad||null,
-           real, onMap:map.hasLayer(depthLayer), z,
+           real, onMap:map.hasLayer(depthLayer), z, threw:depthLayer._btThrew||null,
            zOk: z>=(o.minZoom==null?0:o.minZoom) && z<=(o.maxZoom==null?99:o.maxZoom),
            tiles: depthLayer._container
                   ? depthLayer._container.querySelectorAll('img').length : -1});
@@ -2000,7 +2022,9 @@ async function checkBlueTopo(){
     /* Say which of the three things happened. The old wording guessed "zoom"
        every time and was wrong every time it mattered. */
     let why;
-    if(!w.real)        why='the layer never finished loading \u2014 the service lookup came back after the map had given up waiting.';
+    if(w.threw)        why='the tile address NOAA published has a field this app could not fill (\u201c'+w.threw+'\u201d), so no tile could be built.';
+    else if(BT_TPL_LEFT) why='NOAA\u2019s tile address uses '+BT_TPL_LEFT+', which this app could not fill.';
+    else if(!w.real)   why='the layer never finished loading \u2014 the service lookup came back after the map had given up waiting.';
     else if(!w.onMap)  why='the layer was built but never put on the map.';
     else if(!w.zOk)    why='this zoom ('+w.z+') is outside the range the layer will draw.';
     else               why='the layer is on the map at zoom '+w.z+' and asked for nothing, which points at the tile grid name in the request rather than at your connection.';
