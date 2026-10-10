@@ -628,7 +628,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v42 bt-check</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v44 bt-honest</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -974,6 +974,11 @@ function buildDepthLayer(){
     if(BT && BT.url){
       l=L.tileLayer(BT.url,{maxZoom:s.max,maxNativeZoom:s.nat,minZoom:s.min,
                             opacity:0.8,pane:'depthTiles',attribution:s.a});
+      /* Count from the moment the layer exists. Tiles fail fast, so a watcher
+         that only attaches later sees nothing and calls a dead layer "idle". */
+      l._btLoaded=0; l._btErrored=0; l._btBad=null; l._btOk=null;
+      l.on('tileload',e=>{ l._btLoaded++; if(!l._btOk&&e.tile) l._btOk=e.tile.src; });
+      l.on('tileerror',e=>{ l._btErrored++; if(!l._btBad&&e.tile) l._btBad=e.tile.src; });
       l.on('add',()=>{ clearTimeout(window.__btT); window.__btT=setTimeout(checkBlueTopo,1200); });
       map.on('moveend', ()=>{ if(DEPTH_SOURCES[depthIdx].kind==='bluetopo' && depthOn){
         clearTimeout(window.__btT); window.__btT=setTimeout(checkBlueTopo,1400); } });
@@ -1013,6 +1018,18 @@ function buildDepthLayer(){
        Tolerate bursts, and never auto-fall-back onto a source that cannot
        answer the question: OpenSeaMap is a manual choice only (auto:false). */
     if(++depthFails<5) return;
+    /* A source the angler picked by hand (auto:false — BlueTopo, OpenSeaMap)
+       is never swapped out from under them. Silently demoting BlueTopo to the
+       raster chart left the legend naming a layer that was not on the map, and
+       it destroyed the layer the coverage probe was counting tiles on, so the
+       app then reported "requested no tiles here" about tiles it had watched
+       get rejected. Say what happened and let them choose. */
+    if(DEPTH_SOURCES[depthIdx].auto===false){
+      depthFails=0;
+      if(DEPTH_SOURCES[depthIdx].kind!=='bluetopo')
+        depthNote('"'+DEPTH_SOURCES[depthIdx].n+'" is not answering here. Tap "change" for another source.');
+      return;                            // checkBlueTopo words the BlueTopo case
+    }
     let nxt=-1;
     for(let i=depthIdx+1;i<DEPTH_SOURCES.length;i++){ if(DEPTH_SOURCES[i].auto!==false){ nxt=i; break; } }
     if(nxt<0){
@@ -1810,7 +1827,9 @@ async function discoverBlueTopo(){
     // a web-mercator tile matrix set, so it lines up with everything else
     const sets=[...el.getElementsByTagNameNS('*','TileMatrixSetLink')]
       .map(n=>txt(n,'TileMatrixSet')).filter(Boolean);
-    const tms=sets.find(s=>/GoogleMapsCompatible|WebMercatorQuad|3857|900913/i.test(s));
+    const want=[/^GoogleMapsCompatible$/i,/GoogleMapsCompatible/i,/WebMercatorQuad/i,/3857/,/900913/];
+    let tms=null;
+    for(const w of want){ tms=sets.find(s=>w.test(s)); if(tms) break; }
     if(!tms) throw new Error('no web-mercator tile set (offered: '+(sets.join(', ')||'none')+')');
 
     const fmts=[...el.getElementsByTagNameNS('*','Format')].map(n=>n.textContent.trim());
@@ -1889,27 +1908,57 @@ async function probeBlueTopoTile(){
   }catch(e){ return {url, err:e.message||'request failed'}; }
 }
 
+/* Watch the layer's own tiles. These are <img> elements, so they load with no
+   CORS involvement at all — unlike fetch(), which Safari refuses with "Load
+   failed" when the server sends no CORS header. The first version of this
+   check used fetch and then blamed the LAYER for what was really the probe
+   being blocked. Ask the images. */
+function watchBlueTopoTiles(ms){
+  return new Promise(res=>{
+    const s=DEPTH_SOURCES[depthIdx];
+    if(!depthLayer || s.kind!=='bluetopo' || !depthLayer.on) return res({err:'layer not active'});
+    setTimeout(()=>{
+      res({loaded:depthLayer._btLoaded||0, errored:depthLayer._btErrored||0,
+           okUrl:depthLayer._btOk||null, badUrl:depthLayer._btBad||null});
+    }, ms||4500);
+  });
+}
+
 /* Plain words for what the probe found, so one screenshot settles it. */
 async function checkBlueTopo(){
-  depthNote('Checking BlueTopo coverage here…');
-  const t=await probeBlueTopoTile();
-  if(t.err){
-    depthNote('BlueTopo tile request failed — '+t.err+'. Layer "'+(BT&&BT.title||'?')+'", set '+(BT&&BT.tms||'?')+'.');
-    return t;
+  depthNote('Checking BlueTopo coverage here\u2026');
+  const w=await watchBlueTopoTiles(4500);          // what the tile IMAGES did
+  const t=await probeBlueTopoTile();               // optional, CORS-dependent
+  const where='Layer "'+(BT&&BT.title||'?')+'", set '+(BT&&BT.tms||'?')+'.';
+
+  if(w.errored && !w.loaded){
+    depthNote('BlueTopo is refusing these tiles. '+where+
+              ' '+w.errored+' tiles rejected. Tap "change" for the charts.');
+    return {...w, verdict:'rejected'};
   }
-  if(t.cover==null){
-    depthNote('BlueTopo answered with a '+(t.bytes||0)+'-byte image, but this browser could not read it ('+
-              (t.note||'unknown')+'). If nothing is drawn, tap "change" for the charts.');
-    return t;
+  if(!w.loaded && !w.errored){
+    depthNote('BlueTopo requested no tiles here \u2014 it only draws from zoom 6 in. '+where);
+    return {...w, verdict:'idle'};
   }
-  if(t.cover===0){
-    depthNote('BlueTopo answered, but the tile here is empty — no surveyed depth over this water. '+
-              'It covers open coastal water, not the rivers and canals inland. Tap "change" for the charts.');
-    return t;
+
+  /* Tiles ARE arriving. Whether they contain anything is a separate question,
+     and reading their pixels needs CORS, which the tile host may not grant.
+     If it does not, say what we know rather than inventing a failure. */
+  if(t && t.cover===0){
+    depthNote('BlueTopo is answering ('+w.loaded+' tiles) but they are blank here \u2014 no surveyed depth '+
+              'over this water. It covers open coastal water, not the rivers and canals inland. '+
+              'Tap "change" for the charts.');
+    return {...w, verdict:'empty'};
   }
-  depthNote('BlueTopo "'+(BT.title||BT.layer)+'" is drawing here ('+t.cover+'% of the tile has data). '+
-            'Shading is surveyed depth, not charted soundings.');
-  return t;
+  if(t && t.cover>0){
+    depthNote('BlueTopo "'+(BT.title||BT.layer)+'" is drawing here \u2014 '+w.loaded+' tiles, '+
+              t.cover+'% of the sampled tile has data. Shading is surveyed depth, not charted soundings.');
+    return {...w, verdict:'drawing'};
+  }
+  depthNote('BlueTopo is sending tiles ('+w.loaded+' loaded, '+w.errored+' failed). This browser cannot read '+
+            'their contents to tell you whether they hold data here, so trust your eyes: if the water looks '+
+            'plain, there is no survey over it. '+where);
+  return {...w, verdict:'loaded-unreadable'};
 }
 
 /* ============ STRUCTURE FLOW (USGS Instantaneous Values) ============
