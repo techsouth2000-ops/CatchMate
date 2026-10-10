@@ -628,7 +628,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v41 bluetopo</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v42 bt-check</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -974,6 +974,9 @@ function buildDepthLayer(){
     if(BT && BT.url){
       l=L.tileLayer(BT.url,{maxZoom:s.max,maxNativeZoom:s.nat,minZoom:s.min,
                             opacity:0.8,pane:'depthTiles',attribution:s.a});
+      l.on('add',()=>{ clearTimeout(window.__btT); window.__btT=setTimeout(checkBlueTopo,1200); });
+      map.on('moveend', ()=>{ if(DEPTH_SOURCES[depthIdx].kind==='bluetopo' && depthOn){
+        clearTimeout(window.__btT); window.__btT=setTimeout(checkBlueTopo,1400); } });
     } else {
       l=L.layerGroup([]);   // LayerGroup is an Evented, so the handlers below still bind
       discoverBlueTopo().then(bt=>{
@@ -982,11 +985,11 @@ function buildDepthLayer(){
           depthNote('BlueTopo is not available here \u2014 '+bt.err+'. Tap "change" to go back to the charts.');
           return;
         }
-        depthNote('BlueTopo layer: '+bt.title+'. Shading is depth, not charted soundings.');
         const was=depthOn;
         if(depthLayer) map.removeLayer(depthLayer);
         depthLayer=buildDepthLayer();
         if(was){ depthLayer.addTo(map); paintDepthLegend(); }
+        checkBlueTopo();
       });
     }
   } else {
@@ -1834,6 +1837,79 @@ async function discoverBlueTopo(){
     BT={err:e.message||'could not reach nowCOAST'};
   }
   return BT;
+}
+
+
+/* Discovery can succeed and the tiles still show nothing — a wrong tile-matrix
+   name, a projection mismatch, or simply no BlueTopo coverage over this water.
+   From a phone those look identical: a blank map. So fetch one real tile for
+   where the angler is looking and say exactly what came back. */
+async function probeBlueTopoTile(){
+  if(!BT || !BT.url) return {err:'no layer discovered'};
+  const c=map.getCenter(), z=Math.min(map.getZoom(), 16);
+  const n=Math.pow(2,z);
+  const x=Math.floor((c.lng+180)/360*n);
+  const la=c.lat*Math.PI/180;
+  const y=Math.floor((1-Math.log(Math.tan(la)+1/Math.cos(la))/Math.PI)/2*n);
+  const url=BT.url.replace('{z}',z).replace('{x}',x).replace('{y}',y).replace('{s}','a');
+  try{
+    const r=await Promise.race([fetch(url), timeout(12000)]);
+    const type=r.headers.get('content-type')||'';
+    if(!r.ok) return {url, status:r.status, type, err:'HTTP '+r.status};
+    const blob=await r.blob();
+    if(!/image/i.test(type)){
+      const txt=(await blob.text()).replace(/\s+/g,' ').slice(0,160);
+      return {url, status:r.status, type, bytes:blob.size, err:'not an image: '+txt};
+    }
+    // decode and look for any ink at all
+    /* A plain DOM canvas, not OffscreenCanvas: this has to work on an iPhone,
+       and the blob is same-origin so the canvas is not tainted. */
+    let painted=0, total=1;
+    try{
+      const img=await new Promise((res,rej)=>{
+        const i=new Image();
+        i.onload=()=>res(i); i.onerror=()=>rej(new Error('the PNG would not decode'));
+        i.src=URL.createObjectURL(blob);
+      });
+      const cv=document.createElement('canvas');
+      cv.width=img.naturalWidth||256; cv.height=img.naturalHeight||256;
+      const g=cv.getContext('2d');
+      if(!g) throw new Error('no 2d canvas');
+      g.drawImage(img,0,0);
+      URL.revokeObjectURL(img.src);
+      const d=g.getImageData(0,0,cv.width,cv.height).data;
+      total=d.length/4;
+      for(let i=3;i<d.length;i+=4) if(d[i]>8) painted++;
+    }catch(e){
+      return {url, status:r.status, type, bytes:blob.size,
+              note:'tile arrived but could not be inspected: '+(e.message||e)};
+    }
+    return {url, status:r.status, type, bytes:blob.size, z,
+            cover:Math.round(100*painted/total)};
+  }catch(e){ return {url, err:e.message||'request failed'}; }
+}
+
+/* Plain words for what the probe found, so one screenshot settles it. */
+async function checkBlueTopo(){
+  depthNote('Checking BlueTopo coverage here…');
+  const t=await probeBlueTopoTile();
+  if(t.err){
+    depthNote('BlueTopo tile request failed — '+t.err+'. Layer "'+(BT&&BT.title||'?')+'", set '+(BT&&BT.tms||'?')+'.');
+    return t;
+  }
+  if(t.cover==null){
+    depthNote('BlueTopo answered with a '+(t.bytes||0)+'-byte image, but this browser could not read it ('+
+              (t.note||'unknown')+'). If nothing is drawn, tap "change" for the charts.');
+    return t;
+  }
+  if(t.cover===0){
+    depthNote('BlueTopo answered, but the tile here is empty — no surveyed depth over this water. '+
+              'It covers open coastal water, not the rivers and canals inland. Tap "change" for the charts.');
+    return t;
+  }
+  depthNote('BlueTopo "'+(BT.title||BT.layer)+'" is drawing here ('+t.cover+'% of the tile has data). '+
+            'Shading is surveyed depth, not charted soundings.');
+  return t;
 }
 
 /* ============ STRUCTURE FLOW (USGS Instantaneous Values) ============
