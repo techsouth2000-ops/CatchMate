@@ -628,7 +628,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v47 bt-style</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v48 bt-matrix</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -972,7 +972,12 @@ function buildDepthLayer(){
        it has answered there is nothing to draw, so hand back an empty layer
        and let discovery swap in the real one. */
     if(BT && BT.url){
-      l=L.tileLayer(BT.url,{maxZoom:s.max,maxNativeZoom:s.nat,minZoom:s.min,
+      /* Never ask for a level the published grid does not contain — that is
+         a guaranteed rejection, and it reads to the angler as a dead layer. */
+      l=L.tileLayer(BT.url,{maxZoom:s.max,
+                            maxNativeZoom: BT.zmax!=null?Math.min(s.nat,BT.zmax):s.nat,
+                            minNativeZoom: BT.zmin!=null?BT.zmin:undefined,
+                            minZoom: BT.zmin!=null?Math.max(s.min,BT.zmin):s.min,
                             opacity:0.8,pane:'depthTiles',attribution:s.a});
       /* Count from the moment the layer exists. Tiles fail fast, so a watcher
          that only attaches later sees nothing and calls a dead layer "idle". */
@@ -1872,6 +1877,28 @@ async function discoverBlueTopo(){
     for(const w of want){ tms=sets.find(s=>w.test(s)); if(tms) break; }
     if(!tms) throw new Error('no web-mercator tile set (offered: '+(sets.join(', ')||'none')+')');
 
+    /* How a zoom level is named inside the chosen set. GeoServer writes
+       "EPSG:3857:15"; the OGC WebMercatorQuad set writes plain "15". Guessing
+       either way gets every tile rejected, and the document says which, so
+       read it: find the TileMatrixSet definition and look at a real level. */
+    /* Default to GeoServer's convention when the document does not define the
+       set, because nowCOAST runs GeoServer. If that is wrong the first tiles
+       are refused and the retry below swaps the naming, so the guess costs
+       one round trip rather than the feature. */
+    let tmPat='prefixed', levels=[];
+    const defs=[...doc.getElementsByTagNameNS('*','TileMatrixSet')]
+      .filter(n=>n.getElementsByTagNameNS('*','TileMatrix').length);
+    const def=defs.find(n=>txt(n,'Identifier')===tms);
+    if(def){
+      const ids=[...def.getElementsByTagNameNS('*','TileMatrix')]
+        .map(n=>txt(n,'Identifier')).filter(Boolean);
+      if(ids.length){
+        tmPat = /:\d+$/.test(ids[0]) ? 'prefixed' : 'plain';   // the document decides
+        levels=ids.map(s=>parseInt(String(s).split(':').pop(),10)).filter(n=>!isNaN(n));
+      }
+    }
+    const tmVal = tmPat==='prefixed' ? tms+':{z}' : '{z}';
+
     const fmts=[...el.getElementsByTagNameNS('*','Format')].map(n=>n.textContent.trim());
     const fmt=fmts.find(f=>/png/i.test(f))||fmts[0]||'image/png';
 
@@ -1886,7 +1913,7 @@ async function discoverBlueTopo(){
          no value for — inside tile creation, so the update died before a
          single tile existed and the layer reported no tiles, no loads and no
          errors. Match case-insensitively and globally. */
-      const sub=[[/\{TileMatrixSet\}/gi,tms],[/\{TileMatrix\}/gi,'{z}'],
+      const sub=[[/\{TileMatrixSet\}/gi,tms],[/\{TileMatrix\}/gi,tmVal],
                  [/\{TileRow\}/gi,'{y}'],[/\{TileCol\}/gi,'{x}'],
                  [/\{Style\}/gi,''],[/\{layer\}/gi,c.id]];
       url=sub.reduce((u,[re,v])=>u.replace(re,v), res.getAttribute('template'))
@@ -1901,9 +1928,12 @@ async function discoverBlueTopo(){
       url=NOWCOAST_WMTS+'?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'+
           '&LAYER='+encodeURIComponent(c.id)+'&STYLE=&FORMAT='+encodeURIComponent(fmt)+
           '&TILEMATRIXSET='+encodeURIComponent(tms)+
-          '&TILEMATRIX='+encodeURIComponent(tms)+':{z}&TILEROW={y}&TILECOL={x}';
+          '&TILEMATRIX='+(tmPat==='prefixed'?encodeURIComponent(tms+':')+'{z}':'{z}')+
+          '&TILEROW={y}&TILECOL={x}';
     }
-    BT={url, layer:c.id, title:c.title||c.id, tms, fmt,
+    BT={url, layer:c.id, title:c.title||c.id, tms, fmt, tmPat,
+        zmin: levels.length?Math.min(...levels):null,
+        zmax: levels.length?Math.max(...levels):null,
         all:cands.slice(0,6).map(x=>x.id)};
   }catch(e){
     BT={err:e.message||'could not reach nowCOAST'};
@@ -1918,7 +1948,14 @@ async function discoverBlueTopo(){
    where the angler is looking and say exactly what came back. */
 async function probeBlueTopoTile(){
   if(!BT || !BT.url) return {err:'no layer discovered'};
-  const c=map.getCenter(), z=Math.min(map.getZoom(), 16);
+  /* Ask for a level the grid actually publishes. Using the map's own zoom
+     meant the probe requested z15 from a grid that stops at 13 — a tile the
+     layer itself was correctly never asking for, so the probe manufactured a
+     rejection and then reported it as the layer's. */
+  const c=map.getCenter();
+  let z=Math.min(map.getZoom(), 16);
+  if(BT.zmax!=null) z=Math.min(z, BT.zmax);
+  if(BT.zmin!=null) z=Math.max(z, BT.zmin);
   const n=Math.pow(2,z);
   const x=Math.floor((c.lng+180)/360*n);
   const la=c.lat*Math.PI/180;
@@ -2014,8 +2051,28 @@ async function checkBlueTopo(){
   const where='Layer "'+(BT&&BT.title||'?')+'", set '+(BT&&BT.tms||'?')+'.';
 
   if(w.errored && !w.loaded){
-    depthNote('BlueTopo is refusing these tiles. '+where+
-              ' '+w.errored+' tiles rejected. Tap "change" for the charts.');
+    /* There are only two ways a WMTS server names a zoom level, and which one
+       this set uses is read from the capabilities. If every tile is refused
+       anyway, the reading was wrong — so try the other naming once rather
+       than telling the angler to give up on a layer that is one word away
+       from working. Only once, and only if tiles were genuinely refused. */
+    if(BT && BT.url && !BT._flipped){
+      BT._flipped=true;
+      const pre=BT.tms+':';
+      BT.url = BT.tmPat==='prefixed'
+        ? BT.url.replace(encodeURIComponent(pre)+'{z}','{z}').replace(pre+'{z}','{z}')
+        : BT.url.replace(/([\/=])\{z\}/, (m,p)=> p + (p==='=' ? encodeURIComponent(pre) : pre) + '{z}');
+      BT.tmPat = BT.tmPat==='prefixed' ? 'plain' : 'prefixed';
+      depthNote('BlueTopo refused those tiles — retrying with the other zoom-level naming…');
+      const was=depthOn;
+      if(depthLayer) map.removeLayer(depthLayer);
+      depthLayer=buildDepthLayer();
+      if(was){ depthLayer.addTo(map); paintDepthLegend(); }
+      return new Promise(r=>setTimeout(()=>r(checkBlueTopo()),0));
+    }
+    depthNote('BlueTopo is refusing these tiles. '+where+' '+w.errored+' rejected, both '+
+              'zoom-level namings tried. Tap "change" for the charts. ['+
+              (w.badUrl||'').split('/').slice(-4).join('/')+']');
     return {...w, verdict:'rejected'};
   }
   if(!w.loaded && !w.errored){
