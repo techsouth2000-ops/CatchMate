@@ -628,7 +628,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v44 bt-honest</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v45 depth-says-which</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -1080,13 +1080,26 @@ function toggleDepth(){
   const here = (state && state.lat!=null) ? [state.lat,state.lng] : null;
   if(here) map.setView(here, Math.max(map.getZoom(),14));
   else if(map.getZoom()<13) map.setZoom(13);
-  checkDepthCoverage();
+  depthStatus();
+}
+
+/* One message slot, several sources — so whoever writes it must be the source
+   actually on the map. This was writing an ENC sounding reading ("Charted
+   here: under 1-22 ft") underneath the BlueTopo legend: a depth quoted from a
+   service whose layer was not drawn, sitting where BlueTopo's own verdict
+   should have been. Route the status to whatever is being shown. */
+function depthStatus(){
+  const s=DEPTH_SOURCES[depthIdx];
+  if(s.kind==='enc')      return checkDepthCoverage();
+  if(s.kind==='bluetopo') return checkBlueTopo();
+  depthNote('');          // raster chart and OpenSeaMap speak for themselves
 }
 
 /* NOAA charts only exist for tidal and coastal water. Inland lakes, ponds and
    the upper rivers have no soundings at all — not a failure, but the angler
    deserves to be told rather than left staring at an empty map. */
 async function checkDepthCoverage(){
+  if(DEPTH_SOURCES[depthIdx].kind!=='enc') return;   // never speak for another layer
   const c=map.getCenter();
   depthNote('Checking chart coverage here…');
   const picked=await pickEncBand(c.lat,c.lng);
@@ -1147,10 +1160,14 @@ async function pickEncBand(lat,lng){
    than being stuck with whichever one loaded first. */
 function setDepthSource(i){
   depthIdx=Math.max(0,Math.min(DEPTH_SOURCES.length-1,i));
+  /* Drop the outgoing source's reading immediately. Keeping it meant the new
+     layer's name sat above the old layer's depths until something overwrote
+     them, which is indistinguishable from the new layer having answered. */
+  depthNote('');
   const was=depthOn;
   if(depthLayer) map.removeLayer(depthLayer);
   depthLayer=buildDepthLayer();
-  if(was){ depthLayer.addTo(map); paintDepthLegend(); }
+  if(was){ depthLayer.addTo(map); paintDepthLegend(); depthStatus(); }
   closeModal();
 }
 
@@ -1202,11 +1219,18 @@ function paintDepthLegend(){
       '<div class="dlt">'+esc(s.n)+
         '<span><button class="dlsw" onclick="openDepthPicker()">change</button>'+
         '<button class="dlx" onclick="toggleDepthLegend()" aria-label="Collapse">\u2715</button></span></div>'+
-      '<div class="dlr"><b>3<sub>6</sub></b> a printed number is a sounding: the charted depth at that spot</div>'+
-      '<div class="dlr"><span class="dline"></span> lines join equal depths \u2014 where they bunch together the bottom drops away fast, and that edge is usually where fish sit</div>'+
-      (s.kind==='enc'
-        ? '<div class="dlnote">These printed numbers are <b>metres</b> \u2014 3<sub>6</sub> means 3.6 m, about 12 ft. Bitecast converts them to feet for you wherever it quotes a depth. Charted to mean lower low water, so there is usually more water than printed.</div>'
-        : '<div class="dlnote">Soundings on the printed Florida charts are in <b>feet</b>, measured to mean lower low water, so there is usually more water than printed.</div>')+
+      /* Describe what is actually drawn. BlueTopo is a continuous shaded
+         surface built from survey data \u2014 it has no printed soundings and no
+         contour lines, so explaining how to read those under its name told
+         the angler to look for marks that were never going to appear. */
+      (s.kind==='bluetopo'
+        ? '<div class="dlr"><span class="dline"></span> shading is depth itself \u2014 darker is deeper. Read the <b>edges</b>: where the shade changes over a short distance the bottom drops away fast, and that drop is where fish hold</div>'+
+          '<div class="dlnote">This is surveyed depth from NOAA\u2019s National Bathymetric Source, not a printed chart \u2014 far more detail where a survey exists, and <b>nothing at all where one does not</b>. It covers open coastal water; most rivers and inland canals are blank. Use it to find the drop, and the chart to navigate.</div>'
+        : '<div class="dlr"><b>3<sub>6</sub></b> a printed number is a sounding: the charted depth at that spot</div>'+
+          '<div class="dlr"><span class="dline"></span> lines join equal depths \u2014 where they bunch together the bottom drops away fast, and that edge is usually where fish sit</div>'+
+          (s.kind==='enc'
+            ? '<div class="dlnote">These printed numbers are <b>metres</b> \u2014 3<sub>6</sub> means 3.6 m, about 12 ft. Bitecast converts them to feet for you wherever it quotes a depth. Charted to mean lower low water, so there is usually more water than printed.</div>'
+            : '<div class="dlnote">Soundings on the printed Florida charts are in <b>feet</b>, measured to mean lower low water, so there is usually more water than printed.</div>'))+
       '<div class="dlnote" id="depthmsg">'+esc(depthMsgText)+'</div>';
     }
     L.DomEvent.disableClickPropagation(d);
@@ -1926,6 +1950,13 @@ function watchBlueTopoTiles(ms){
 
 /* Plain words for what the probe found, so one screenshot settles it. */
 async function checkBlueTopo(){
+  /* Discovery may still be in flight, in which case the layer on the map is
+     the empty placeholder. Counting its (nonexistent) tiles and announcing
+     "requested no tiles here" would blame the service for our own wait. */
+  if(!BT || !BT.url){
+    depthNote('Looking up NOAA\u2019s BlueTopo service\u2026');
+    return {verdict:'pending'};
+  }
   depthNote('Checking BlueTopo coverage here\u2026');
   const w=await watchBlueTopoTiles(4500);          // what the tile IMAGES did
   const t=await probeBlueTopoTile();               // optional, CORS-dependent
@@ -2169,7 +2200,11 @@ async function runDiagnostics(){
        previously replaced a correct probe with one that really was wrong and
        reported the charts blocked every time. The indices here are web zoom
        12 over Matlacha Pass, where charts are known to render. */
-    ['BlueTopo (NOAA bathymetry)', discoverBlueTopo().then(b=>!b.err)],
+    /* Carry the reason, not just a red word. "blocked" with nothing beside it
+       sent us chasing the network when the service had answered perfectly and
+       simply published no such layer. */
+    ['BlueTopo (NOAA bathymetry)', discoverBlueTopo().then(b=>({ok:!b.err,
+        detail: b.err || ((b.title||b.layer)+' · '+b.tms)}))],
     ['NOAA ENC (depth contours)', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/encdirect/enc_harbour/MapServer/export?bbox=-9150000,3100000,-9145000,3105000&bboxSR=3857&imageSR=3857&size=64,64&format=png32&transparent=true&layers=show:76,104&f=image')],
     ['NOAA raster charts', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/10/1732/1113')],
     ['OpenSeaMap (marine overlay)', probeImage('https://tiles.openseamap.org/seamark/12/1113/1732.png')]
@@ -2178,16 +2213,22 @@ async function runDiagnostics(){
      shifted a hard-coded index and made the verdict judge the wrong service. */
   const CHART_FROM=tests.findIndex(t=>/BlueTopo|NOAA|OpenSeaMap/.test(t[0]));
   const DEPTH_ROW=tests.findIndex(t=>/depth contours/i.test(t[0]));                     // index of the first chart source above
-  const results=await Promise.all(tests.map(t=>t[1]));
+  const raw=await Promise.all(tests.map(t=>t[1]));
+  /* A row may answer with a reason as well as a verdict. */
+  const results=raw.map(r=>r&&typeof r==='object'?!!r.ok:!!r);
+  const details=raw.map(r=>r&&typeof r==='object'?(r.detail||''):'');
   const blocked=results.filter((r,i)=>i>=3&&i<=4&&!r).length;
   const charts=results.slice(CHART_FROM);
   const chartsOk=charts.filter(Boolean).length;
   let h='<div class="loc">Connection test</div><div class="sub">What this browser is allowed to reach</div>';
   h+='<div style="margin-top:14px">';
   tests.forEach((t,i)=>{
-    h+=`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bd);font-size:13px">
-          <span>${esc(t[0])}</span>
-          <b style="color:${results[i]?'#0a8f5f':'#c2410c'}">${results[i]?'reachable':'blocked'}</b>
+    h+=`<div style="padding:9px 0;border-bottom:1px solid var(--bd);font-size:13px">
+          <div style="display:flex;justify-content:space-between;gap:10px">
+            <span>${esc(t[0])}</span>
+            <b style="color:${results[i]?'#0a8f5f':'#c2410c'};white-space:nowrap">${results[i]?'reachable':'blocked'}</b>
+          </div>
+          ${details[i]?`<div style="font-size:11.5px;color:var(--mut);margin-top:3px;line-height:1.5">${esc(details[i])}</div>`:''}
         </div>`;
   });
   h+='</div>';
