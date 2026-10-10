@@ -628,7 +628,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v50 lakes</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v51 coverage</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -1246,16 +1246,62 @@ function setDepthSource(i){
   closeModal();
 }
 
+/* "Which of these actually has data where I am?" is the only question this
+   menu is really asked, and until now the angler answered it by trying each
+   one and staring at a blank map. Ask the services directly. Only sources we
+   can genuinely test are tested; the rest say so rather than guess. */
+let COV={};
+async function coverageHere(){
+  const c=map.getCenter(), lat=c.lat, lng=c.lng;
+  COV={};
+  const paint=()=>{ DEPTH_SOURCES.forEach((s,i)=>{
+    const el=document.getElementById('cov'+i); if(!el) return;
+    const v=COV[i];
+    el.textContent = v===undefined ? 'checking…' : v.t;
+    el.style.color = v===undefined ? 'var(--mut)' : (v.ok?'#0a8f5f':'#c2410c');
+  }); };
+  paint();
+
+  const jobs=DEPTH_SOURCES.map(async (s,i)=>{
+    try{
+      if(s.kind==='enc'){
+        const p=await pickEncBand(lat,lng);
+        const n=p.data?(p.data.soundings.length+p.data.contours.length):0;
+        COV[i]= p.band<0||!n ? {ok:false,t:'nothing charted here'} : {ok:true,t:'has data here'};
+      } else if(s.kind==='fwc'){
+        const q=s.svc+'/'+s.lyr+'/query?geometry='+lng+','+lat+
+          '&geometryType=esriGeometryPoint&inSR=4326&distance=4000&units=esriSRUnit_Meter'+
+          '&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json';
+        const d=await Promise.race([fetch(q).then(r=>r.json()), timeout(10000)]);
+        if(d&&d.error) throw new Error('service error');
+        COV[i]= (d&&d.count) ? {ok:true,t:'has data here'} : {ok:false,t:'lake not surveyed'};
+      } else if(s.kind==='bluetopo'){
+        /* Its tiles cannot be read cross-origin, so the only honest answer is
+           the verdict from the last time it was actually on the map. */
+        COV[i]= BT_LAST ? (BT_LAST==='drawing' ? {ok:true,t:'was drawing here'}
+                         : BT_LAST==='empty'   ? {ok:false,t:'no survey here'}
+                         : {ok:true,t:'tiles arriving — look'})
+                        : {ok:true,t:'saltwater surveys — try it'};
+      } else {
+        COV[i]={ok:true,t:'always available'};
+      }
+    }catch(e){ COV[i]={ok:false,t:'could not check'}; }
+    paint();
+  });
+  await Promise.all(jobs);
+}
+
 function openDepthPicker(){
   openModal(`
     <div class="mtitle">🌊 Fishing map</div>
-    <div class="msub">Depth contours and soundings come from official nautical charts. Coverage differs by area — if one looks blank where you fish, try another.</div>
+    <div class="msub">Checked against the water on screen right now — pick one that has data here.</div>
     ${DEPTH_SOURCES.map((s,i)=>`
       <button class="slrow" onclick="setDepthSource(${i})">
         <div class="slic">${i===depthIdx?'✓':'🌊'}</div>
         <div style="flex:1;min-width:0;text-align:left">
           <div class="slname">${esc(s.n)}${i===depthIdx?' <span class="chip">in use</span>':''}</div>
           <div class="slsub">${esc(s.note)}</div>
+          <div class="slsub" id="cov${i}" style="font-weight:700;margin-top:3px">checking…</div>
         </div><div class="arrow">›</div>
       </button>`).join('')}
     <div class="shopblk">
@@ -1270,6 +1316,7 @@ function openDepthPicker(){
     </div>
     <button class="btn alt" onclick="closeModal()">Close</button>
   `);
+  coverageHere();
 }
 
 let depthLegendOpen=false;   // collapsed by default: on a phone the map matters more
@@ -1900,6 +1947,7 @@ function paintStrip(){
 const NOWCOAST_WMTS='https://nowcoast.noaa.gov/geoserver/gwc/service/wmts';
 let BT=null;              // null = not tried, {…} = found, {err} = tried and failed
 let BT_TPL_LEFT='';       // placeholders the service used that we could not fill
+let BT_LAST='';           // last coverage verdict, so the picker can report it honestly
 
 async function discoverBlueTopo(){
   if(BT) return BT;
@@ -2103,7 +2151,7 @@ async function checkBlueTopo(){
   if(w.err){
     depthNote('BlueTopo is not on the map to measure \u2014 '+w.err+
               '. Tap "change", pick it again, and if this repeats use the charts.');
-    return {...w, verdict:'absent'};
+    return {...w, verdict:(BT_LAST='absent')};
   }
   const t=await probeBlueTopoTile();               // optional, CORS-dependent
   const where='Layer "'+(BT&&BT.title||'?')+'", set '+(BT&&BT.tms||'?')+'.';
@@ -2131,7 +2179,7 @@ async function checkBlueTopo(){
     depthNote('BlueTopo is refusing these tiles. '+where+' '+w.errored+' rejected, both '+
               'zoom-level namings tried. Tap "change" for the charts. ['+
               (w.badUrl||'').split('/').slice(-4).join('/')+']');
-    return {...w, verdict:'rejected'};
+    return {...w, verdict:(BT_LAST='rejected')};
   }
   if(!w.loaded && !w.errored){
     /* Say which of the three things happened. The old wording guessed "zoom"
@@ -2145,7 +2193,7 @@ async function checkBlueTopo(){
     else               why='the layer is on the map at zoom '+w.z+' and asked for nothing, which points at the tile grid name in the request rather than at your connection.';
     depthNote('BlueTopo drew no tiles: '+why+' '+where+' [z'+w.z+' real'+(w.real?1:0)+
               ' map'+(w.onMap?1:0)+' img'+w.tiles+']');
-    return {...w, verdict:'idle'};
+    return {...w, verdict:(BT_LAST='idle')};
   }
 
   /* Tiles ARE arriving. Whether they contain anything is a separate question,
@@ -2156,18 +2204,18 @@ async function checkBlueTopo(){
               'NOAA has run a hydrographic survey \u2014 bays, passes and open coastal water. Rivers and inland '+
               'channels are usually dredged and surveyed by the Army Corps instead, so they are blank here.');
     btOfferChart();                      // does the chart have depths at this spot?
-    return {...w, verdict:'empty'};
+    return {...w, verdict:(BT_LAST='empty')};
   }
   if(t && t.cover>0){
     depthNote('BlueTopo "'+(BT.title||BT.layer)+'" is drawing here \u2014 '+w.loaded+' tiles, '+
               t.cover+'% of the sampled tile has data. Shading is surveyed depth, not charted soundings.');
-    return {...w, verdict:'drawing'};
+    return {...w, verdict:(BT_LAST='drawing')};
   }
   depthNote('BlueTopo is sending tiles ('+w.loaded+' loaded). This browser will not let the app read their '+
             'contents, so trust your eyes: shading means a survey, plain water means none. BlueTopo only '+
             'covers water NOAA has surveyed — bays, passes and the open coast, not the dredged river channels.');
   btOfferChart();
-  return {...w, verdict:'loaded-unreadable'};
+  return {...w, verdict:(BT_LAST='loaded-unreadable')};
 }
 
 /* When BlueTopo has nothing over this water, the useful next sentence is not
