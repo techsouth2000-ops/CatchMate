@@ -980,8 +980,14 @@ function buildDepthLayer(){
       l.on('tileload',e=>{ l._btLoaded++; if(!l._btOk&&e.tile) l._btOk=e.tile.src; });
       l.on('tileerror',e=>{ l._btErrored++; if(!l._btBad&&e.tile) l._btBad=e.tile.src; });
       l.on('add',()=>{ clearTimeout(window.__btT); window.__btT=setTimeout(checkBlueTopo,1200); });
-      map.on('moveend', ()=>{ if(DEPTH_SOURCES[depthIdx].kind==='bluetopo' && depthOn){
-        clearTimeout(window.__btT); window.__btT=setTimeout(checkBlueTopo,1400); } });
+      /* Once, not once per build. Rebuilding the layer used to add another
+         moveend listener every time, so after a few source switches one pan
+         fired the coverage check several times over. */
+      if(!window.__btMove){
+        window.__btMove=true;
+        map.on('moveend', ()=>{ if(DEPTH_SOURCES[depthIdx].kind==='bluetopo' && depthOn){
+          clearTimeout(window.__btT); window.__btT=setTimeout(checkBlueTopo,1400); } });
+      }
     } else {
       l=L.layerGroup([]);   // LayerGroup is an Evented, so the handlers below still bind
       discoverBlueTopo().then(bt=>{
@@ -994,7 +1000,8 @@ function buildDepthLayer(){
         if(depthLayer) map.removeLayer(depthLayer);
         depthLayer=buildDepthLayer();
         if(was){ depthLayer.addTo(map); paintDepthLegend(); }
-        checkBlueTopo();
+        /* Leaflet creates tiles on the next frame, so ask after one. */
+        setTimeout(checkBlueTopo,0);
       });
     }
   } else {
@@ -1940,10 +1947,24 @@ async function probeBlueTopoTile(){
 function watchBlueTopoTiles(ms){
   return new Promise(res=>{
     const s=DEPTH_SOURCES[depthIdx];
-    if(!depthLayer || s.kind!=='bluetopo' || !depthLayer.on) return res({err:'layer not active'});
+    /* Name which of the three it is, because the cure differs for each. */
+    if(!depthLayer)            return res({err:'no depth layer exists'});
+    if(s.kind!=='bluetopo')    return res({err:'the active source is "'+s.n+'", not BlueTopo'});
+    if(!depthLayer.getTileUrl) return res({err:'still holding the placeholder from before the service lookup finished'});
     setTimeout(()=>{
+      /* When the answer is "no tiles at all", the counters alone cannot say
+         why, and the honest verdict is useless without the reason. Report the
+         state that distinguishes the causes: a placeholder left behind by a
+         discovery that finished after the layer was built, a real tile layer
+         never added to the map, or a zoom outside the layer's own range. */
+      const real=!!depthLayer.getTileUrl;         // false = the empty placeholder
+      const z=map.getZoom(), o=depthLayer.options||{};
       res({loaded:depthLayer._btLoaded||0, errored:depthLayer._btErrored||0,
-           okUrl:depthLayer._btOk||null, badUrl:depthLayer._btBad||null});
+           okUrl:depthLayer._btOk||null, badUrl:depthLayer._btBad||null,
+           real, onMap:map.hasLayer(depthLayer), z,
+           zOk: z>=(o.minZoom==null?0:o.minZoom) && z<=(o.maxZoom==null?99:o.maxZoom),
+           tiles: depthLayer._container
+                  ? depthLayer._container.querySelectorAll('img').length : -1});
     }, ms||4500);
   });
 }
@@ -1959,6 +1980,14 @@ async function checkBlueTopo(){
   }
   depthNote('Checking BlueTopo coverage here\u2026');
   const w=await watchBlueTopoTiles(4500);          // what the tile IMAGES did
+  /* "No layer to watch" and "a layer that asked for nothing" are different
+     facts, and v44 printed the second sentence for both \u2014 so a layer that was
+     never on the map was reported as a service that sent no tiles. */
+  if(w.err){
+    depthNote('BlueTopo is not on the map to measure \u2014 '+w.err+
+              '. Tap "change", pick it again, and if this repeats use the charts.');
+    return {...w, verdict:'absent'};
+  }
   const t=await probeBlueTopoTile();               // optional, CORS-dependent
   const where='Layer "'+(BT&&BT.title||'?')+'", set '+(BT&&BT.tms||'?')+'.';
 
@@ -1968,7 +1997,15 @@ async function checkBlueTopo(){
     return {...w, verdict:'rejected'};
   }
   if(!w.loaded && !w.errored){
-    depthNote('BlueTopo requested no tiles here \u2014 it only draws from zoom 6 in. '+where);
+    /* Say which of the three things happened. The old wording guessed "zoom"
+       every time and was wrong every time it mattered. */
+    let why;
+    if(!w.real)        why='the layer never finished loading \u2014 the service lookup came back after the map had given up waiting.';
+    else if(!w.onMap)  why='the layer was built but never put on the map.';
+    else if(!w.zOk)    why='this zoom ('+w.z+') is outside the range the layer will draw.';
+    else               why='the layer is on the map at zoom '+w.z+' and asked for nothing, which points at the tile grid name in the request rather than at your connection.';
+    depthNote('BlueTopo drew no tiles: '+why+' '+where+' [z'+w.z+' real'+(w.real?1:0)+
+              ' map'+(w.onMap?1:0)+' img'+w.tiles+']');
     return {...w, verdict:'idle'};
   }
 
