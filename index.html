@@ -628,7 +628,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v51 coverage</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v52 lake-ink</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -926,9 +926,15 @@ const EncDepthLayer = L.Layer.extend({
       const band=ENC_BANDS[this.options.band!=null?this.options.band:encBand];
       svc=ENC_ROOT+band.svc+'/MapServer'; show=band.snd+','+band.cnt;
     }
+    /* Some services draw in colours built for a white map. Rather than invert
+       the finished image — which turned FWC's blue contour ramp into a yellow
+       glare — ask the server to draw it in a colour that reads on dark. */
+    const dyn=(this.options.dyn && !this._dynOff) && this.options.dyn(map.getZoom());
+    const sel=dyn ? '&dynamicLayers='+encodeURIComponent(JSON.stringify(dyn))
+                  : '&layers=show:'+show;
     const url=svc+'/export?bbox='+[sw.x,sw.y,ne.x,ne.y].join(',')+
       '&bboxSR=3857&imageSR=3857&size='+w+','+hh+'&format=png32&transparent=true'+
-      '&layers=show:'+show+'&dpi='+this.options.dpi+'&f=image';
+      sel+'&dpi='+this.options.dpi+'&f=image';
     const self=this;
     const ov=L.imageOverlay(url, b, {opacity:this.options.opacity, pane:this.options.pane,
                                      className:this.options.className, interactive:false});
@@ -940,6 +946,11 @@ const EncDepthLayer = L.Layer.extend({
     });
     ov.on('error', function(){
       if(self._map) self._map.removeLayer(ov);
+      /* The service advertises dynamicLayers, but advertising is not the same
+         as serving it to an anonymous caller, and that is unverifiable from
+         here. If the custom-drawn request fails, fall back once to the plain
+         one so the angler still gets contours in the service's own colours. */
+      if(dyn && !self._dynOff){ self._dynOff=true; self.fire('dynfallback'); self._draw(); return; }
       self.fire('tileerror',{});     // keeps the existing failover plumbing working
     });
     ov.addTo(map);
@@ -960,7 +971,7 @@ const DEPTH_SOURCES=[
   {n:'Florida lake contours', kind:'fwc',
    svc:'https://gis.myfwc.com/hosting/rest/services/Open_Data/Bathymetry_of_Select_Lakes_in_Florida/MapServer',
    lyr:'3', a:'FWC — Bathymetry of Select Lakes in Florida',
-   max:22, min:9, auto:false,
+   max:22, min:11, auto:false,
    note:'Freshwater lake depth contours in feet, surveyed by FWC. Covers many Florida lakes — not Lake Okeechobee, and not rivers or canals.'},
   {n:'Full NOAA chart', kind:'raster',
    u:'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}',
@@ -984,8 +995,19 @@ function buildDepthLayer(){
     l=new EncDepthLayer({minZoom:s.min, band:null, opacity:1,
                          pane:'depthTiles', className:'encinv', attribution:s.a});
   } else if(s.kind==='fwc'){
-    l=new EncDepthLayer({minZoom:s.min, svc:s.svc, layers:s.lyr, opacity:1,
-                         pane:'depthTiles', className:'encinv', attribution:s.a});
+    /* FWC publishes a contour every foot. Over a whole lake that is thousands
+       of lines in a few hundred pixels and they merge into a solid shape —
+       worse than nothing, because it hides the water. Show every fifth foot
+       until the angler is close enough for the rest to separate. */
+    const dyn=(z)=>{
+      const d={id:+s.lyr, source:{type:'mapLayer', mapLayerId:+s.lyr},
+        drawingInfo:{renderer:{type:'simple', symbol:{type:'esriSLS',
+          style:'esriSLSSolid', color:[130,226,255,255], width:1}}}};
+      if(z<13) d.definitionExpression='DEPTHF IN (-5,-10,-15,-20,-25,-30,-35,-40)';
+      return [d];
+    };
+    l=new EncDepthLayer({minZoom:s.min, svc:s.svc, layers:s.lyr, dyn, opacity:1,
+                         pane:'depthTiles', className:'', attribution:s.a});  // drawn to suit: never inverted
   } else if(s.kind==='bluetopo'){
     /* Built from whatever discovery actually found, never from a guess. Until
        it has answered there is nothing to draw, so hand back an empty layer
@@ -1347,6 +1369,7 @@ function paintDepthLegend(){
          the angler to look for marks that were never going to appear. */
       (s.kind==='fwc'
         ? '<div class="dlr"><span class="dline"></span> each line is one foot of depth below the lake surface — where they bunch together the bottom drops away fast, and that drop is where fish hold</div>'+
+          '<div class="dlnote">Zoomed out you are shown every <b>fifth</b> foot, because every foot would merge into one solid shape. Zoom in past the whole lake and the rest appear.</div>'+
           '<div class="dlnote">Surveyed by <b>FWC</b>, already in <b>feet</b> below the surface — no tide to allow for. Covers a long list of Florida lakes, but <b>not Lake Okeechobee</b>, and no rivers or canals.</div>'
       : s.kind==='bluetopo'
         ? '<div class="dlr"><span class="dline"></span> shading is depth itself \u2014 darker is deeper. Read the <b>edges</b>: where the shade changes over a short distance the bottom drops away fast, and that drop is where fish hold</div>'+
