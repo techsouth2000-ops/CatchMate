@@ -441,6 +441,10 @@ button,input,select,textarea{font-family:inherit}
 /* ENC draws black ink for a white paper chart; invert it so the contours and
    soundings read as white line-work on the dark map instead of vanishing. */
 .encinv img, img.encinv{filter:invert(1) brightness(1.9) contrast(1.35)}
+/* FWC draws its contours in a blue ramp meant for a white map. Inverting that
+   turns it yellow, so lift it instead: the deep navy becomes a readable blue
+   and the pale shallows stay pale. */
+.fwcbright img, img.fwcbright{filter:brightness(2.3) saturate(1.5)}
 .dlminimsg{margin-top:5px;max-width:230px;background:rgba(14,31,46,.94);border:1px solid var(--line2);
   border-radius:8px;padding:6px 9px;color:var(--ink2);font-size:10px;line-height:1.5}
 .dlegend.mini{padding:0;border:0;background:none;box-shadow:none;max-width:none}
@@ -628,7 +632,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v53 depthcheck</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v54 lake-heal</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -930,6 +934,23 @@ const EncDepthLayer = L.Layer.extend({
        the finished image — which turned FWC's blue contour ramp into a yellow
        glare — ask the server to draw it in a colour that reads on dark. */
     const dyn=(this.options.dyn && !this._dynOff) && this.options.dyn(map.getZoom());
+    /* Without dynamicLayers we cannot clear the service's scale limits, so we
+       have to stay inside them. ArcGIS derives scale from bbox, pixel size and
+       dpi, which means asking for a smaller image pushes the scale back up
+       into the range the layer will draw at. Slightly softer, but visible —
+       and invisible was the bug. */
+    const cs=this.options.clampScale;
+    if(cs && !dyn){
+      /* Solve for the width directly rather than nudging by a factor. A first
+         attempt scaled the current size by scale/target and still came out at
+         1:9,413 against the live service — under FWC's 1:10,000 cutoff, so
+         the layer stayed invisible. scale = (metres/pixel) x dpi / 0.0254,
+         so the largest width that still draws is mW x dpi / 0.0254 / target. */
+      const mW=Math.abs(ne.x-sw.x), k=this.options.dpi/0.0254;
+      const wMax=Math.floor(mW*k/cs.min);
+      if(w>wMax){ const f=Math.max(0.05, wMax/w);
+                  w=Math.max(64,Math.floor(w*f)); hh=Math.max(64,Math.floor(hh*f)); }
+    }
     const sel=dyn ? '&dynamicLayers='+encodeURIComponent(JSON.stringify(dyn))
                   : '&layers=show:'+show;
     const url=svc+'/export?bbox='+[sw.x,sw.y,ne.x,ne.y].join(',')+
@@ -1017,6 +1038,7 @@ function buildDepthLayer(){
       return [d];
     };
     l=new EncDepthLayer({minZoom:s.min, svc:s.svc, layers:s.lyr, dyn, opacity:1,
+                         clampScale:{min:12000},   // FWC stops below 1:10,000; headroom for rounding
                          pane:'depthTiles', className:'', attribution:s.a});  // drawn to suit: never inverted
   } else if(s.kind==='bluetopo'){
     /* Built from whatever discovery actually found, never from a guess. Until
@@ -1197,9 +1219,53 @@ async function checkLakeCoverage(){
         Math.max(...v).toFixed(0)+' ft within a couple of miles. Lines in feet below the surface; '+
         'where they bunch is your drop.'
       : 'FWC surveyed this lake. Contours are in feet below the surface.');
+    /* The data is here. Whether the picture we asked for actually contains it
+       is a separate question, and the one that kept being answered wrong: the
+       request can succeed and come back empty. Look at the image. */
+    fwcVerifyDraw();
   }catch(e){
     depthNote('Could not reach the FWC lake survey service just now.');
   }
+}
+
+/* The styled request cannot be verified from where this app was written — the
+   URL is too long for the tools available there — so it is verified HERE, on
+   the phone, against the real service. Known survey data plus an empty image
+   means the request is wrong, not the lake, and there is a second way to ask.
+   Try it rather than leaving the angler with a blank lake and no explanation. */
+let FWC_MODE='styled';
+async function fwcVerifyDraw(){
+  const s=DEPTH_SOURCES[depthIdx];
+  if(s.kind!=='fwc' || !depthLayer || FWC_MODE!=='styled') return;
+  const u=depthProbeUrl(s);
+  if(!u) return;
+  let ink=null;
+  try{
+    const img=await new Promise((res,rej)=>{
+      const i=new Image(); i.crossOrigin='anonymous';
+      i.onload=()=>res(i); i.onerror=()=>rej(new Error('blocked'));
+      i.src=u; setTimeout(()=>rej(new Error('slow')),12000);
+    });
+    const cv=document.createElement('canvas');
+    cv.width=img.naturalWidth; cv.height=img.naturalHeight;
+    const g=cv.getContext('2d'); g.drawImage(img,0,0);
+    const d=g.getImageData(0,0,cv.width,cv.height).data;
+    let n=0; for(let i=3;i<d.length;i+=4) if(d[i]>8) n++;
+    ink=n;
+  }catch(e){ ink=null; }          // could not look; leave the layer alone
+  if(ink!==0) return;             // null = unknown, >0 = fine
+
+  /* Verified empty over water the service says it has surveyed. Switch to the
+     plain request, which is the one confirmed to work, and say so. */
+  FWC_MODE='plain';
+  if(depthLayer && depthLayer.options){
+    depthLayer._dynOff=true;
+    depthLayer.options.dpi=96;
+    depthLayer.options.className='fwcbright';
+    depthLayer.redraw();
+  }
+  depthNote(depthMsgText+' — The styled request came back empty, so the app '+
+            'switched to FWC’s own colours, which it has confirmed works.');
 }
 
 /* NOAA charts only exist for tidal and coastal water. Inland lakes, ponds and
