@@ -633,7 +633,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v59 overhaul</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v60 plain</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -983,17 +983,17 @@ const EncDepthLayer = L.Layer.extend({
 });
 
 const DEPTH_SOURCES=[
-  {n:'Depth contours', kind:'enc',
+  {n:'Depth contours', kind:'enc', plain:'Nautical chart depths', depth:true,
    a:'NOAA Office of Coast Survey (ENC)', max:22, nat:22, min:12, auto:true,
    note:'Vector nautical chart \u2014 stays sharp however far you zoom in.'},
-  {n:'BlueTopo depth shading', kind:'bluetopo',
+  {n:'BlueTopo depth shading', kind:'bluetopo', plain:'Seafloor depth shading', depth:true,
    a:'NOAA National Bathymetric Source', max:22, nat:16, min:6, auto:false,
    note:'NOAA\u2019s high-resolution seafloor model \u2014 continuous depth shading rather than charted soundings. Saltwater only.'},
   /* Inland water. NOAA charts stop at the Okeechobee Waterway and BlueTopo
      only exists where NOAA surveyed, so the lakes an angler actually fishes
      were blank. FWC surveyed a long list of them; verified live, keyless,
      contours already in FEET. It does NOT include Lake Okeechobee. */
-  {n:'Florida lake contours', kind:'fwc',
+  {n:'Florida lake contours', kind:'fwc', plain:'Lake survey', depth:true,
    svc:'https://gis.myfwc.com/hosting/rest/services/Open_Data/Bathymetry_of_Select_Lakes_in_Florida/MapServer',
    lyr:'3', a:'FWC — Bathymetry of Select Lakes in Florida',
    max:22, min:11, auto:false,
@@ -1004,17 +1004,17 @@ const DEPTH_SOURCES=[
      and stays. Values are BED ELEVATION in metres NAVD88, not depth, which is
      why it must be read against the lake stage rather than printed as feet of
      water. */
-  {n:'Lake Okeechobee survey', kind:'okee',
+  {n:'Lake Okeechobee survey', kind:'okee', plain:'Lake Okeechobee survey', depth:true,
    svc:'https://services2.arcgis.com/7XOSGW3VgfWJK7Ia/arcgis/rest/services/'+
        'DS1031_LOkee_UTM17_NAVD88_G99_shp_contours/FeatureServer/0',
    a:'USGS DS-1031 (2001), hosted by CHNEP / Charlotte County',
    max:22, min:8, auto:false,
    note:'The only public depth survey of Lake Okeechobee — single-beam, 2001. Bottom contours every half metre, read against today’s lake stage.'},
-  {n:'Full NOAA chart', kind:'raster',
+  {n:'Full NOAA chart', kind:'raster', plain:'The full nautical chart', depth:true,
    u:'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}',
    a:'NOAA Office of Coast Survey', max:22, nat:18, zoff:-2, min:2, opaque:true, auto:true,
    note:'The whole printed chart: channels, marks and hazards. Hides the basemap.'},
-  {n:'OpenSeaMap', kind:'raster',
+  {n:'OpenSeaMap', kind:'raster', plain:'Marks and buoys', depth:false,
    u:'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
    a:'OpenSeaMap', max:22, nat:18, zoff:0, min:2, auto:false,
    note:'Community marine overlay \u2014 marks, buoys and hazards, not full bathymetry.'}
@@ -1512,12 +1512,16 @@ function sourceHasData(s,lat,lng){
                     : {ok:true,t:'tiles arriving \u2014 look'})
                    : {ok:null,t:'saltwater surveys \u2014 try it'};
   }
-  if(s.kind!=='enc' && s.kind!=='fwc' && s.kind!=='okee') return {ok:true,t:'always available'};
+  /* The full chart is the same NOAA product as the contours, so it covers
+     exactly the same water. Calling it "always available" offered it over
+     inland lakes where it draws nothing. Judge it by the same test. */
+  if(s.kind!=='enc' && s.kind!=='fwc' && s.kind!=='okee' && s.depth===false)
+    return {ok:true,t:'always available'};
   return sourceHasDataAsync(s,lat,lng);
 }
 async function sourceHasDataAsync(s,lat,lng){
   try{
-    if(s.kind==='enc'){
+    if(s.kind==='enc' || s.kind==='raster'){
       const p=await pickEncBand(lat,lng);
       const n=p.data?(p.data.soundings.length+p.data.contours.length):0;
       return (p.band<0||!n) ? {ok:false,t:'nothing charted here'} : {ok:true,t:'has data here'};
@@ -1543,8 +1547,11 @@ async function coverageHere(){
   const paint=()=>{ DEPTH_SOURCES.forEach((s,i)=>{
     const el=document.getElementById('cov'+i); if(!el) return;
     const v=COV[i];
+    /* A source with nothing over this water is not an option, it is noise.
+       Take the row away rather than printing a red excuse beside it. */
+    if(v && v.ok===false){ const row=el.closest('.slrow'); if(row){ row.remove(); return; } }
     el.textContent = v===undefined ? 'checking\u2026' : v.t;
-    el.style.color = v===undefined ? 'var(--mut)' : (v.ok?'#0a8f5f':v.ok===null?'var(--mut)':'#c2410c');
+    el.style.color = v===undefined ? 'var(--mut)' : (v.ok?'#0a8f5f':'var(--mut)');
   }); };
   const pending=[];
   DEPTH_SOURCES.forEach((s,i)=>{
@@ -1600,33 +1607,37 @@ function depthAutoOn(){
 }
 
 function openDepthPicker(){
+  /* This was a six-row catalogue of services with their jargon on display,
+     which is the app's plumbing dressed up as a choice. The angler does not
+     pick a bathymetric source; he fishes. So: say in one line what is drawn
+     and why, and offer only the alternatives that could actually apply to
+     THIS water — usually one, sometimes none. */
+  const type=(state && state.type)||'';
+  const here=sourcesFor(type).filter(({s})=>s.depth!==false);
+  const cur = depthNoData ? null : DEPTH_SOURCES[depthIdx];
   openModal(`
-    <div class="mtitle">🌊 Fishing map</div>
-    <div class="msub">Bitecast picks the right depth data for whatever water you tap. Override it here if you want a particular source \u2014 checked against the water on screen right now.</div>
-    <button class="slrow" onclick="depthAutoOn()">
-      <div class="slic">${depthAuto?'✓':'🤖'}</div>
-      <div style="flex:1;min-width:0;text-align:left">
-        <div class="slname">Automatic${depthAuto?' <span class="chip">in use</span>':''}</div>
-        <div class="slsub">Uses the best survey for the water under your tap \u2014 lake survey, chart or seafloor model.</div>
-      </div><div class="arrow">\u203A</div>
-    </button>
-    ${DEPTH_SOURCES.map((s,i)=>`
+    <div class="mtitle">\uD83C\uDF0A Depth data</div>
+    <div class="msub">${ cur
+        ? 'Showing <b>'+esc(plainName(cur))+'</b> for this water'+(depthAuto?', chosen automatically.':'.')
+        : esc(depthNoData||'No depth data for this water.') }</div>
+    ${ here.length>1 ? `
+    <div class="sblbl" style="margin-top:16px">Use something else here</div>
+    ${here.filter(({s})=>s!==cur).map(({s,i})=>`
       <button class="slrow" onclick="setDepthSource(${i})">
-        <div class="slic">${i===depthIdx?'✓':'🌊'}</div>
+        <div class="slic">\uD83C\uDF0A</div>
         <div style="flex:1;min-width:0;text-align:left">
-          <div class="slname">${esc(s.n)}${i===depthIdx?' <span class="chip">in use</span>':''}</div>
-          <div class="slsub">${esc(s.note)}</div>
-          <div class="slsub" id="cov${i}" style="font-weight:700;margin-top:3px">checking…</div>
-        </div><div class="arrow">›</div>
-      </button>`).join('')}
-    <div class="shopblk">
-      <div class="sblbl">Reading a chart</div>
+          <div class="slname">${esc(plainName(s))}</div>
+          <div class="slsub" id="cov${i}">checking\u2026</div>
+        </div><div class="arrow">\u203A</div>
+      </button>`).join('')}` : '' }
+    ${ (!depthAuto) ? `
+    <button class="btn" onclick="depthAutoOn()" style="margin-top:14px">Go back to automatic</button>` : '' }
+    <div class="shopblk" style="margin-top:16px">
+      <div class="sblbl">What the lines mean</div>
       <div class="sbval" style="font-size:12px;line-height:1.65">
-        A plain number on the water is a <b>sounding</b> — the charted depth at that exact point.
-        Lines joining equal depths are <b>contours</b>; where they bunch together the bottom drops away fast,
-        and that edge is usually where fish sit.<br><br>
-        Most Florida charts are in <b>feet</b>, but the chart title governs — some are metres or fathoms.
-        Depths are measured to mean lower low water, so on an average tide there is more water than printed.
+        Where the lines crowd together the bottom drops away fast. That edge is where fish hold.
+        Saltwater charts are measured to low water, so there is usually more water than printed;
+        lake surveys are plain feet below the surface.
       </div>
     </div>
     <button class="btn alt" onclick="closeModal()">Close</button>
@@ -1636,6 +1647,9 @@ function openDepthPicker(){
   `);
   coverageHere();
 }
+
+/* What the angler should read. The service names are ours, not his. */
+function plainName(s){ return s.plain || s.n; }
 
 /* Everything above runs on the angler's phone, which can reach services this
    app was built against but which cannot be reached from where it was
@@ -1749,12 +1763,12 @@ function paintDepthLegend(){
     }
     if(!depthLegendOpen){
       d.innerHTML='<button class="dlmini" onclick="toggleDepthLegend()">'+
-        '\uD83C\uDF0A '+esc(s.n)+(depthAuto?' <span class="dlcar" style="opacity:.6">auto</span>':'')+
+        '\uD83C\uDF0A '+esc(plainName(s))+
         ' <span class="dlcar">\u25B4</span></button>'+
         (depthMsgText?'<div class="dlminimsg">'+esc(depthMsgText)+'</div>':'');
     } else {
       d.innerHTML=
-      '<div class="dlt">'+esc(s.n)+
+      '<div class="dlt">'+esc(plainName(s))+
         '<span><button class="dlsw" onclick="openDepthPicker()">change</button>'+
         '<button class="dlx" onclick="toggleDepthLegend()" aria-label="Collapse">\u2715</button></span></div>'+
       /* The source name changes by itself now, so say why rather than leaving
