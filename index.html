@@ -633,7 +633,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v61 quiet</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v62 tap-depth</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -1184,15 +1184,18 @@ function depthNote(msg){
   else if(depthLegend) paintDepthLegend();   // collapsed: repaint so the chip shows it
 }
 
+let depthUserOff=false;        // he switched it off; leave it off
 function toggleDepth(){
   const btn=document.getElementById('b-depth');
   if(depthOn){
+    depthUserOff=true;
     if(depthLayer) map.removeLayer(depthLayer);
     if(depthLegend){ depthLegend.remove(); depthLegend=null; }
     depthLegendOpen=false;
     depthOn=false; btn.classList.remove('on');
     return;
   }
+  depthUserOff=false;
   depthOn=true; btn.classList.add('on');
   if(!depthLayer) depthLayer=buildDepthLayer();
   depthLayer.addTo(map);
@@ -5211,11 +5214,16 @@ function render(){
         <button class="tab ${state.tab==='feed'?'on':''}" onclick="setTab('feed')">Community</button>
        </div>`;
 
-  if(state.offline || state.idErr || fishErr){
-    h+=`<div class="err">
-          Live data is unreachable from this browser${state.offline?' — showing the built-in offline list for this area':''}.
-          <br><a href="#" onclick="runDiagnostics();return false;" style="color:#ffc9b0;font-weight:700">Run a connection test →</a>
-        </div>`;
+  /* This fired whenever ONE lookup service was down and put a red alarm with
+     a "run a connection test" link on every tab, every tap. Overpass goes
+     down often, the app names the water from its built-in list perfectly well
+     when it does, and the angler was being sent to a diagnostics screen
+     instead of his fishing card. Say it once, quietly, in a line. */
+  /* Where the name came from is already printed under the title, so repeating
+     it here was a second notice for one fact. Only say something when a thing
+     the angler asked for is genuinely missing: the catch records. */
+  if(fishErr){
+    h+=`<div class="nod" style="margin:4px 0 10px">Recent catch records are unavailable just now \u2014 species below come from the built-in Florida list.</div>`;
   }
 
   if(state.tab==='today'){
@@ -5406,9 +5414,17 @@ async function lookup(lat,lng,radiusOverride){
   SPOTS=null; SPOTS_ERR=null; FLOW=null; FLOW_DONE=false;
   if(spotLayer){ map.removeLayer(spotLayer); spotLayer=null; }
   render();
-  /* New water, so the right depth source may have changed. Tapping Lake
-     Okeechobee and then the Caloosahatchee needs two different surveys, and
-     working that out is the app's job, not the angler's. */
+  /* Depth is the point. It was an off-by-default option buried in a Layers
+     sheet, so tapping a lake never showed contours unless the angler went
+     hunting for a switch — which is the thing he asked for in the first
+     place. Turn it on with the water, unless he has turned it off himself. */
+  if(!depthOn && !depthUserOff){
+    depthOn=true;
+    const btn=document.getElementById('b-depth'); if(btn) btn.classList.add('on');
+    if(!depthLayer) depthLayer=buildDepthLayer();
+    depthLayer.addTo(map);
+    paintDepthLegend();
+  }
   if(depthOn && depthAuto) chooseDepthForHere();
 
   // tides and weather load in the background so the fish list is not held up
