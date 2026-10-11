@@ -632,7 +632,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v55 netfirst</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v56 okeechobee</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -997,6 +997,18 @@ const DEPTH_SOURCES=[
    lyr:'3', a:'FWC — Bathymetry of Select Lakes in Florida',
    max:22, min:11, auto:false,
    note:'Freshwater lake depth contours in feet, surveyed by FWC. Covers many Florida lakes — not Lake Okeechobee, and not rivers or canals.'},
+  /* Lake Okeechobee. No live service carries it — except this one: the USGS
+     2001 single-beam survey, published as a hosted feature layer by CHNEP /
+     Charlotte County. 170 contour lines for the whole lake, so it loads once
+     and stays. Values are BED ELEVATION in metres NAVD88, not depth, which is
+     why it must be read against the lake stage rather than printed as feet of
+     water. */
+  {n:'Lake Okeechobee survey', kind:'okee',
+   svc:'https://services2.arcgis.com/7XOSGW3VgfWJK7Ia/arcgis/rest/services/'+
+       'DS1031_LOkee_UTM17_NAVD88_G99_shp_contours/FeatureServer/0',
+   a:'USGS DS-1031 (2001), hosted by CHNEP / Charlotte County',
+   max:22, min:8, auto:false,
+   note:'The only public depth survey of Lake Okeechobee — single-beam, 2001. Bottom contours every half metre, read against today’s lake stage.'},
   {n:'Full NOAA chart', kind:'raster',
    u:'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}',
    a:'NOAA Office of Coast Survey', max:22, nat:18, zoff:-2, min:2, opaque:true, auto:true,
@@ -1018,6 +1030,21 @@ function buildDepthLayer(){
        tiles once the map has settled, and keep little off-screen buffer. */
     l=new EncDepthLayer({minZoom:s.min, band:null, opacity:1,
                          pane:'depthTiles', className:'encinv', attribution:s.a});
+  } else if(s.kind==='okee'){
+    /* The whole lake is 170 lines, so there is no paging and no tile grid:
+       fetch it once, keep it, and draw it as vectors that stay crisp at any
+       zoom — which is what an angler hunting a drop actually needs. */
+    l=L.layerGroup([]);
+    okeeContours().then(gj=>{
+      if(DEPTH_SOURCES[depthIdx].kind!=='okee') return;
+      if(!gj){ depthNote('Could not reach the Lake Okeechobee survey just now.'); return; }
+      const g=L.geoJSON(gj,{
+        style:f=>({color:okeeColour(f.properties.CONTOUR), weight:1.4, opacity:0.95}),
+        onEachFeature:(f,lyr)=>lyr.bindTooltip(okeeLabel(f.properties.CONTOUR),{sticky:true})
+      });
+      l.addLayer(g);
+      okeeNote(gj);
+    });
   } else if(s.kind==='fwc'){
     /* FWC publishes a contour every foot. Over a whole lake that is thousands
        of lines in a few hundred pixels and they merge into a solid shape —
@@ -1186,6 +1213,7 @@ function depthStatus(){
   if(s.kind==='enc')      return checkDepthCoverage();
   if(s.kind==='bluetopo') return checkBlueTopo();
   if(s.kind==='fwc')      return checkLakeCoverage();
+  if(s.kind==='okee')     return;   // the layer reports when its contours land
   depthNote('');          // raster chart and OpenSeaMap speak for themselves
 }
 
@@ -1225,6 +1253,87 @@ async function checkLakeCoverage(){
     fwcVerifyDraw();
   }catch(e){
     depthNote('Could not reach the FWC lake survey service just now.');
+  }
+}
+
+/* ============ LAKE OKEECHOBEE (USGS 2001 single-beam survey) ============
+   The contour values are BED ELEVATION in metres above NAVD88, between 0 and
+   3.5. They are not depths, and printing them as feet of water would be a lie
+   that gets deeper as the lake drops. Depth = today's stage minus the bottom,
+   so the stage has to be fetched before any depth is quoted. */
+let OKEE=null, OKEE_STAGE=null, OKEE_PARTIAL=false;
+const M2FT=3.28084;
+
+async function okeeContours(){
+  if(OKEE) return OKEE;
+  const s=DEPTH_SOURCES.find(x=>x.kind==='okee');
+  try{
+    const gj=await getJSON(s.svc+'/query?where=1%3D1&outFields=CONTOUR&outSR=4326'+
+                           '&resultRecordCount=2000&f=geojson', 20000);
+    if(!gj || !gj.features || !gj.features.length) return null;
+    /* 170 lines today, well under the server's 2000 cap. If that ever changes
+       the angler should know the lake is only partly drawn rather than
+       quietly fishing half a map. */
+    OKEE_PARTIAL = !!gj.exceededTransferLimit;
+    OKEE=gj; return OKEE;
+  }catch(e){ return null; }
+}
+
+/* The lake's own gauge, found rather than hard-coded: USGS parameter 00062 is
+   reservoir water-surface elevation, which is exactly what "lake stage" means. */
+async function okeeStage(){
+  if(OKEE_STAGE!==null) return OKEE_STAGE;
+  try{
+    const txt=await Promise.race([
+      fetch(USGS+'/site/?format=rdb&bBox=-81.10,26.70,-80.60,27.20&parameterCd=00062&siteStatus=active')
+        .then(r=>r.text()), timeout(9000)]);
+    const ids=txt.split('\n').filter(l=>l&&l[0]!=='#').slice(2)
+      .map(l=>l.split('\t')).filter(c=>c.length>2&&c[1]).map(c=>c[1]).slice(0,5);
+    if(!ids.length){ OKEE_STAGE={none:true}; return OKEE_STAGE; }
+    const j=await getJSON(USGS+'/iv/?format=json&sites='+ids.join(',')+'&parameterCd=00062&period=P2D',12000);
+    const ts=(j&&j.value&&j.value.timeSeries)||[];
+    let best=null;
+    for(const t of ts){
+      const vs=((t.values&&t.values[0]&&t.values[0].value)||[])
+        .map(v=>({v:parseFloat(v.value), t:v.dateTime}))
+        .filter(x=>!isNaN(x.v) && x.v>-999998);
+      if(vs.length){ const last=vs[vs.length-1];
+        best={ft:last.v, when:last.t, site:t.sourceInfo&&t.sourceInfo.siteName,
+              datum:(t.sourceInfo&&t.sourceInfo.verticalDatum)||''}; break; }
+    }
+    OKEE_STAGE=best||{none:true};
+  }catch(e){ OKEE_STAGE={none:true}; }
+  return OKEE_STAGE;
+}
+
+/* Deepest water is the LOWEST bottom, so the ramp runs dark-for-deep. */
+function okeeColour(m){
+  const t=Math.max(0,Math.min(1,(+m)/3.5));        // 0 = deepest bottom
+  const c=[[16,78,139],[32,132,196],[96,186,228],[176,222,244]];
+  const i=Math.min(c.length-1,Math.floor(t*c.length));
+  return 'rgb('+c[i].join(',')+')';
+}
+function okeeLabel(m){
+  const bed=(+m)*M2FT;
+  const st=OKEE_STAGE&&OKEE_STAGE.ft;
+  return st ? (st-bed).toFixed(1)+' ft of water here (bottom '+bed.toFixed(1)+' ft NAVD88)'
+            : 'bottom at '+bed.toFixed(1)+' ft NAVD88';
+}
+async function okeeNote(gj){
+  const n=gj.features.length;
+  const part=OKEE_PARTIAL?' Only part of the lake came back, so treat gaps as missing data rather than flat bottom.':'';
+  const st=await okeeStage();
+  if(DEPTH_SOURCES[depthIdx].kind!=='okee') return;
+  if(st && st.ft!=null){
+    depthNote('Lake Okeechobee, USGS 2001 survey — '+n+' bottom contours. Stage now '+
+      st.ft.toFixed(2)+' ft'+(st.datum?' '+st.datum:'')+', so the lines are about '+
+      ((st.ft-0)).toFixed(0)+' ft of water at the deepest and '+
+      Math.max(0,(st.ft-3.5*M2FT)).toFixed(0)+' ft at the shallowest. Tap a line for its depth. '+
+      'A 2001 survey of a lake that has been dredged and silted since — use it to find the drop, not to clear your prop.'+part);
+  } else {
+    depthNote('Lake Okeechobee, USGS 2001 survey — '+n+' bottom contours, in feet above NAVD88 '+
+      '(lower number = deeper water). The live lake stage is not available just now, so the app '+
+      'cannot turn these into feet of water. Tap a line for its bottom elevation.'+part);
   }
 }
 
@@ -1373,6 +1482,13 @@ async function coverageHere(){
         const d=await Promise.race([fetch(q).then(r=>r.json()), timeout(10000)]);
         if(d&&d.error) throw new Error('service error');
         COV[i]= (d&&d.count) ? {ok:true,t:'has data here'} : {ok:false,t:'lake not surveyed'};
+      } else if(s.kind==='okee'){
+        const q=s.svc+'/query?geometry='+lng+','+lat+'&geometryType=esriGeometryPoint&inSR=4326'+
+          '&distance=5000&units=esriSRUnit_Meter&spatialRel=esriSpatialRelIntersects'+
+          '&returnCountOnly=true&f=json';
+        const d=await Promise.race([fetch(q).then(r=>r.json()), timeout(10000)]);
+        if(d&&d.error) throw new Error('service error');
+        COV[i]= (d&&d.count) ? {ok:true,t:'has data here'} : {ok:false,t:'outside the lake survey'};
       } else if(s.kind==='bluetopo'){
         /* Its tiles cannot be read cross-origin, so the only honest answer is
            the verdict from the last time it was actually on the map. */
@@ -1531,7 +1647,10 @@ function paintDepthLegend(){
          surface built from survey data \u2014 it has no printed soundings and no
          contour lines, so explaining how to read those under its name told
          the angler to look for marks that were never going to appear. */
-      (s.kind==='fwc'
+      (s.kind==='okee'
+        ? '<div class="dlr"><span class="dline"></span> each line is a half metre of lake bottom \u2014 darker is deeper. Where the lines crowd, the bottom falls away, and that is the edge worth fishing</div>'+
+          '<div class="dlnote">The <b>USGS 2001 single-beam survey</b>, the only public depth map of Lake Okeechobee. Lines are bottom height, so feet of water depends on today\u2019s stage \u2014 the app fetches it and the line labels show the result. <b>Twenty-five years old</b>, on a lake that has been dredged and has silted since: good for finding the drop, not for clearing your prop.</div>'
+      : s.kind==='fwc'
         ? '<div class="dlr"><span class="dline"></span> each line is one foot of depth below the lake surface — where they bunch together the bottom drops away fast, and that drop is where fish hold</div>'+
           '<div class="dlnote">Zoomed out you are shown every <b>fifth</b> foot, because every foot would merge into one solid shape. Zoom in past the whole lake and the rest appear.</div>'+
           '<div class="dlnote">Surveyed by <b>FWC</b>, already in <b>feet</b> below the surface — no tide to allow for. Covers a long list of Florida lakes, but <b>not Lake Okeechobee</b>, and no rivers or canals.</div>'
