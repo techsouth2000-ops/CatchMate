@@ -632,7 +632,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v54 lake-heal</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v55 netfirst</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -2654,6 +2654,20 @@ async function runDiagnostics(){
   const charts=results.slice(CHART_FROM);
   const chartsOk=charts.filter(Boolean).length;
   let h='<div class="loc">Connection test</div><div class="sub">What this browser is allowed to reach</div>';
+  /* The rows that matter are below the fold on a phone, so the answer goes
+     first. A blocked host here is usually the network, not the app — and one
+     blocked chart host looks exactly like a layer that does not work. */
+  const down=tests.map((t,i)=>results[i]?null:t[0]).filter(Boolean);
+  h+= down.length
+    ? '<div class="err" style="margin-top:12px"><b>'+down.length+' of '+tests.length+
+      ' cannot be reached from this network:</b><br>'+esc(down.join(', '))+
+      '<br><br>Anything on that list will look broken in the app however it is built. '+
+      'If it works on mobile data but not here, the block is this Wi-Fi — a router filter, '+
+      'a DNS service or a content blocker — rather than the app or the data.</div>'
+    : '<div style="margin-top:12px;padding:10px;background:rgba(47,196,158,.10);color:var(--ink);'+
+      'border-left:3px solid var(--sec);border-radius:6px;font-size:12px;line-height:1.6">'+
+      '<b>Every source is reachable from this network.</b> Anything blank on the map is a gap in the '+
+      'data for that water, not a connection problem.</div>';
   h+='<div style="margin-top:14px">';
   tests.forEach((t,i)=>{
     h+=`<div style="padding:9px 0;border-bottom:1px solid var(--bd);font-size:13px">
