@@ -633,7 +633,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v60 plain</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v61 quiet</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -1283,10 +1283,9 @@ async function checkLakeCoverage(){
     /* FWC stores depth as a negative value below the surface. */
     const v=f.map(x=>Math.abs(+x.attributes.DEPTHF)).filter(n=>!isNaN(n));
     depthNote(v.length
-      ? 'FWC surveyed this lake — contours from '+Math.min(...v).toFixed(0)+' to '+
-        Math.max(...v).toFixed(0)+' ft within a couple of miles. Lines in feet below the surface; '+
-        'where they bunch is your drop.'
-      : 'FWC surveyed this lake. Contours are in feet below the surface.');
+      ? 'Surveyed lake — '+Math.min(...v).toFixed(0)+' to '+Math.max(...v).toFixed(0)+
+        ' ft within a couple of miles.'
+      : 'Surveyed lake.');
     /* The data is here. Whether the picture we asked for actually contains it
        is a separate question, and the one that kept being answered wrong: the
        request can succeed and come back empty. Look at the image. */
@@ -1483,6 +1482,11 @@ async function pickEncBand(lat,lng){
 function setDepthSource(i){
   depthAuto=false;                 // they chose; stop second-guessing them
   depthAutoWhy='';
+  /* Clearing this was missed, and the one-line "no survey here" notice short
+     circuits the whole legend — so after any water with no data, every later
+     source drew underneath a box still saying there was nothing, and the
+     layer looked frozen. */
+  depthNoData='';
   depthIdx=Math.max(0,Math.min(DEPTH_SOURCES.length-1,i));
   /* Drop the outgoing source's reading immediately. Keeping it meant the new
      layer's name sat above the old layer's depths until something overwrote
@@ -1756,8 +1760,7 @@ function paintDepthLegend(){
        information, it was noise where the water should be. */
     if(depthNoData){
       d.className='dlegend mini';
-      d.innerHTML='<div class="dlminimsg" style="max-width:250px">'+esc(depthNoData)+
-        ' <button class="dlsw" onclick="openDepthPicker()">sources</button></div>';
+      d.innerHTML='<div class="dlminimsg" style="max-width:250px">'+esc(depthNoData)+'</div>';
       L.DomEvent.disableClickPropagation(d);
       return d;
     }
@@ -1767,32 +1770,20 @@ function paintDepthLegend(){
         ' <span class="dlcar">\u25B4</span></button>'+
         (depthMsgText?'<div class="dlminimsg">'+esc(depthMsgText)+'</div>':'');
     } else {
+      /* One line on how to read what is drawn, then the reading itself. The
+         three paragraphs that used to live here were me explaining my data
+         sources to a man who wanted to know where the drop is. */
+      const how = {
+        okee:'Each line is a half metre of lake bottom, darker is deeper. Tap a line for the depth.',
+        fwc :'Each line is one foot of depth. Zoomed out you see every fifth foot.',
+        bluetopo:'Shading is depth itself \u2014 darker is deeper.',
+        enc :'Printed numbers are soundings, lines join equal depths. Quoted depths are converted to feet.',
+        raster:'Printed numbers are soundings in feet, measured to low water.'
+      }[s.kind] || '';
       d.innerHTML=
       '<div class="dlt">'+esc(plainName(s))+
-        '<span><button class="dlsw" onclick="openDepthPicker()">change</button>'+
-        '<button class="dlx" onclick="toggleDepthLegend()" aria-label="Collapse">\u2715</button></span></div>'+
-      /* The source name changes by itself now, so say why rather than leaving
-         the angler to wonder what he pressed. */
-      (depthAuto?'<div class="dlauto">chosen automatically for this water</div>':'')+
-      /* Describe what is actually drawn. BlueTopo is a continuous shaded
-         surface built from survey data \u2014 it has no printed soundings and no
-         contour lines, so explaining how to read those under its name told
-         the angler to look for marks that were never going to appear. */
-      (s.kind==='okee'
-        ? '<div class="dlr"><span class="dline"></span> each line is a half metre of lake bottom \u2014 darker is deeper. Where the lines crowd, the bottom falls away, and that is the edge worth fishing</div>'+
-          '<div class="dlnote">The <b>USGS 2001 single-beam survey</b>, the only public depth map of Lake Okeechobee. Lines are bottom height, so feet of water depends on today\u2019s stage \u2014 the app fetches it and the line labels show the result. <b>Twenty-five years old</b>, on a lake that has been dredged and has silted since: good for finding the drop, not for clearing your prop.</div>'
-      : s.kind==='fwc'
-        ? '<div class="dlr"><span class="dline"></span> each line is one foot of depth below the lake surface — where they bunch together the bottom drops away fast, and that drop is where fish hold</div>'+
-          '<div class="dlnote">Zoomed out you are shown every <b>fifth</b> foot, because every foot would merge into one solid shape. Zoom in past the whole lake and the rest appear.</div>'+
-          '<div class="dlnote">Surveyed by <b>FWC</b>, already in <b>feet</b> below the surface — no tide to allow for. Covers a long list of Florida lakes, but <b>not Lake Okeechobee</b>, and no rivers or canals.</div>'
-      : s.kind==='bluetopo'
-        ? '<div class="dlr"><span class="dline"></span> shading is depth itself \u2014 darker is deeper. Read the <b>edges</b>: where the shade changes over a short distance the bottom drops away fast, and that drop is where fish hold</div>'+
-          '<div class="dlnote">This is surveyed depth from NOAA\u2019s National Bathymetric Source, not a printed chart \u2014 far more detail where a survey exists, and <b>nothing at all where one does not</b>. It covers open coastal water; most rivers and inland canals are blank. Use it to find the drop, and the chart to navigate.</div>'
-        : '<div class="dlr"><b>3<sub>6</sub></b> a printed number is a sounding: the charted depth at that spot</div>'+
-          '<div class="dlr"><span class="dline"></span> lines join equal depths \u2014 where they bunch together the bottom drops away fast, and that edge is usually where fish sit</div>'+
-          (s.kind==='enc'
-            ? '<div class="dlnote">These printed numbers are <b>metres</b> \u2014 3<sub>6</sub> means 3.6 m, about 12 ft. Bitecast converts them to feet for you wherever it quotes a depth. Charted to mean lower low water, so there is usually more water than printed.</div>'
-            : '<div class="dlnote">Soundings on the printed Florida charts are in <b>feet</b>, measured to mean lower low water, so there is usually more water than printed.</div>'))+
+        '<span><button class="dlx" onclick="toggleDepthLegend()" aria-label="Collapse">\u2715</button></span></div>'+
+      '<div class="dlr">'+esc(how)+' Where the lines crowd, the bottom falls away \u2014 that edge is where fish hold.</div>'+
       '<div class="dlnote" id="depthmsg">'+esc(depthMsgText)+'</div>';
     }
     L.DomEvent.disableClickPropagation(d);
