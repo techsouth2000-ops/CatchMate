@@ -632,7 +632,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v56 okeechobee</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v57 honest-diag</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -2759,6 +2759,11 @@ async function runDiagnostics(){
     ['NOAA ENC (depth contours)', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/encdirect/enc_harbour/MapServer/export?bbox=-9150000,3100000,-9145000,3105000&bboxSR=3857&imageSR=3857&size=64,64&format=png32&transparent=true&layers=show:76,104&f=image')],
     ['NOAA raster charts', probeImage('https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/10/1732/1113')],
     ['FWC lake contours', probeImage('https://gis.myfwc.com/hosting/rest/services/Open_Data/Bathymetry_of_Select_Lakes_in_Florida/MapServer/export?bbox=-9060000,3180000,-9050000,3190000&bboxSR=3857&imageSR=3857&size=64,64&format=png32&transparent=true&layers=show:3&f=image')],
+    /* Added with the source itself this time. The Okeechobee layer shipped
+       without a row here, so the one screen meant to answer "can this phone
+       reach my depth data?" quietly left out the lake he fishes. */
+    ['Lake Okeechobee survey', probeJSON(DEPTH_SOURCES.find(s=>s.kind==='okee').svc+
+        '/query?where=1%3D1&returnCountOnly=true&f=json')],
     ['OpenSeaMap (marine overlay)', probeImage('https://tiles.openseamap.org/seamark/12/1113/1732.png')]
   ];
   /* Find the rows by name, never by position. Adding a single row above
@@ -2798,12 +2803,24 @@ async function runDiagnostics(){
         </div>`;
   });
   h+='</div>';
-  if(blocked){
-    h+=`<div class="err" style="margin-top:14px">
-      The data APIs are blocked here. That is a restriction of this preview window, not a fault in the app — it will not fetch live water names or fish records until you open it somewhere without that restriction.
-      <br><br><b>Push it to GitHub Pages and open the real URL in Safari or Chrome.</b> Everything marked blocked above should turn green there.
-      <br><br>Until then the app runs on its built-in Florida list, which is marked "offline" wherever it appears.</div>`;
-  } else {
+  /* This used to announce that "the data APIs are blocked" because of "this
+     preview window" and tell the angler to push the app to GitHub Pages —
+     while he was reading it ON GitHub Pages, with twelve of thirteen sources
+     green. It fired whenever any ONE of two rows failed, said far more than
+     it knew, and contradicted the summary at the top. Say only what is true
+     of the row that actually failed. */
+  const NAMES=i=>tests[i][0];
+  const lostOv=!results[3], lostFish=!results[4];
+  if(lostOv||lostFish){
+    h+='<div class="err" style="margin-top:14px"><b>What this costs you:</b><br>'+
+      (lostOv?'• '+esc(NAMES(3))+' is not answering, so the app names water from its built-in Florida '+
+              'list instead of the live map. Names are marked "offline" where that happens; everything '+
+              'else on the card still works.<br>':'')+
+      (lostFish?'• '+esc(NAMES(4))+' is not answering, so recent catch records for the area are '+
+              'unavailable. Species guidance falls back to the built-in Florida list.<br>':'')+
+      '<br>Overpass in particular rate-limits and goes down often. If the rest of the list is green, '+
+      'this is that service having a moment, not your connection — try again in a few minutes.</div>';
+  } else if(!down.length){
     h+=`<div style="margin-top:14px;padding:10px;background:rgba(47,196,158,.10);color:var(--ink);border-left:3px solid var(--sec);border-radius:6px;font-size:12px;line-height:1.6">
       Everything is reachable. Tap the map and you will get live water names and live fish records.</div>`;
   }
