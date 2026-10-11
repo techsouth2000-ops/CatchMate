@@ -633,7 +633,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v58 auto-depth</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v59 overhaul</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -1111,7 +1111,7 @@ function buildDepthLayer(){
       discoverBlueTopo().then(bt=>{
         if(DEPTH_SOURCES[depthIdx].kind!=='bluetopo') return;
         if(bt.err){
-          depthNote('BlueTopo is not available here \u2014 '+bt.err+'. Tap "change" to go back to the charts.');
+          depthNote(bt.plain||btPlain(bt.err||''));
           return;
         }
         const was=depthOn;
@@ -1213,29 +1213,35 @@ function toggleDepth(){
 async function chooseDepthForHere(){
   if(!depthOn || !depthAuto) return;
   const c=(state && state.lat!=null) ? {lat:state.lat,lng:state.lng} : map.getCenter();
-  depthNote('Finding the best depth data for this water…');
-  const pick=await autoPickDepth(c.lat,c.lng);
+  const type=(state && state.type) || '';
+  depthNote('Finding depth data for this water…');
+  const pick=await autoPickDepth(c.lat,c.lng,type);
   if(!depthOn || !depthAuto) return;
   depthAutoWhy=pick.why||'';
-  if(pick.idx!==depthIdx){
+
+  /* Nothing covers this water. Leaving a dead layer on the map and a wall of
+     explanation beside it was the worst of both: no depth AND no map. Take
+     the layer off, say it once, in one line, and get out of the way. */
+  if(pick.idx<0){
+    if(depthLayer){ map.removeLayer(depthLayer); depthLayer=null; }
+    depthNoData = (type==='fresh')
+      ? 'No depth survey exists for this lake. Most Florida lakes have never been surveyed.'
+      : 'No depth survey or chart covers this spot.';
+    depthNote('');
+    paintDepthLegend();
+    return;
+  }
+  depthNoData='';
+  if(pick.idx!==depthIdx || !depthLayer){
     depthIdx=pick.idx;
     if(depthLayer) map.removeLayer(depthLayer);
     depthLayer=buildDepthLayer();
     depthLayer.addTo(map);
   }
   paintDepthLegend();
-  if(pick.why==='nothing'){
-    depthNote('No depth survey covers this water. The lake surveys are freshwater lakes, and the '+
-              'chart covers tidal water and the Okeechobee Waterway — this spot is in neither. '+
-              'Everything else on the card still works for it.');
-  } else {
-    /* Including the untested BlueTopo case: it reports on itself, and those
-       messages are better than anything written here — one of them even
-       checks whether the chart covers the spot instead. Writing a second note
-       would only race it and lose. */
-    depthStatus();
-  }
+  depthStatus();
 }
+let depthNoData='';
 
 /* One message slot, several sources — so whoever writes it must be the source
    actually on the map. This was writing an ENC sounding reading ("Charted
@@ -1555,25 +1561,37 @@ async function coverageHere(){
    another and the Caloosahatchee a third is asking him to do the app's job.
    Tap water, get depth. The menu stays for overriding, not for finding. */
 let depthAuto=true, depthAutoWhy='';
-const AUTO_ORDER=['okee','fwc','enc'];   // most specific survey first, chart last
 
-async function autoPickDepth(lat,lng){
-  const cand=AUTO_ORDER
-    .map(k=>({k, i:DEPTH_SOURCES.findIndex(s=>s.kind===k)}))
-    .filter(c=>c.i>=0);
-  const res=await Promise.all(cand.map(c=>Promise.resolve(sourceHasData(DEPTH_SOURCES[c.i],lat,lng))));
-  for(let n=0;n<cand.length;n++){
-    if(res[n] && res[n].ok===true) return {idx:cand[n].i, why:null};
+/* Which sources could POSSIBLY apply to this water. The app already knows
+   whether the angler tapped fresh or tidal water — it prints FRESHWATER on
+   the card — and it was not using that. So BlueTopo, a model built entirely
+   from NOAA's SALTWATER hydrographic surveys, got switched on over an inland
+   lake and then explained itself in XML. A source that cannot cover this kind
+   of water is never tried, never offered and never blamed. */
+function sourcesFor(type){
+  const fresh = (type==='fresh');
+  return DEPTH_SOURCES.map((s,i)=>({s,i})).filter(({s})=>{
+    if(s.kind==='okee'||s.kind==='fwc') return true;      // the freshwater surveys
+    if(s.kind==='enc'||s.kind==='raster') return true;    // charts also cover the Waterway
+    return !fresh;                                        // BlueTopo and OpenSeaMap are marine
+  });
+}
+
+const AUTO_ORDER=['okee','fwc','enc','bluetopo'];   // specific survey first, guess last
+
+async function autoPickDepth(lat,lng,type){
+  const allowed=sourcesFor(type);
+  for(const k of AUTO_ORDER){
+    const c=allowed.find(x=>x.s.kind===k);
+    if(!c) continue;
+    /* BlueTopo is the one source that cannot be tested without drawing it,
+       so it is only reached once everything testable has said no — and only
+       on salt water, where it might genuinely hold a survey. */
+    if(k==='bluetopo'){ if(BT_LAST==='empty') continue; return {idx:c.i, why:null}; }
+    const r=await Promise.resolve(sourceHasData(c.s,lat,lng));
+    if(r && r.ok===true) return {idx:c.i, why:null};
   }
-  /* Nothing we can test has anything. BlueTopo is the only remaining
-     possibility and it cannot be tested without drawing it, so on salt water
-     it is worth a look; otherwise say plainly that nothing covers this. */
-  const bt=DEPTH_SOURCES.findIndex(s=>s.kind==='bluetopo');
-  /* BlueTopo is the only source that cannot be tested without drawing it, so
-     it is worth a look — unless it has already been seen to be blank here, in
-     which case nothing covers this water and the chart is the honest answer. */
-  if(bt>=0 && BT_LAST!=='empty') return {idx:bt, why:'untested'};
-  return {idx: DEPTH_SOURCES.findIndex(s=>s.kind==='enc'), why:'nothing'};
+  return {idx:-1, why:'nothing'};     // -1 = draw nothing, and say so once
 }
 
 function depthAutoOn(){
@@ -1611,8 +1629,10 @@ function openDepthPicker(){
         Depths are measured to mean lower low water, so on an average tide there is more water than printed.
       </div>
     </div>
-    <button class="btn" onclick="openDepthCheck()">Why is this blank? Run a depth check</button>
     <button class="btn alt" onclick="closeModal()">Close</button>
+    <div style="text-align:center;margin-top:10px">
+      <button class="dlsw" onclick="openDepthCheck()" style="font-size:11.5px">run a depth check</button>
+    </div>
   `);
   coverageHere();
 }
@@ -1717,6 +1737,16 @@ function paintDepthLegend(){
   depthLegend=L.control({position:'bottomleft'});
   depthLegend.onAdd=function(){
     const d=L.DomUtil.create('div','dlegend'+(depthLegendOpen?'':' mini'));
+    /* Nothing to explain, so explain nothing: one line, with a way to look at
+       the sources if he wants to. A failure box the size of the map was not
+       information, it was noise where the water should be. */
+    if(depthNoData){
+      d.className='dlegend mini';
+      d.innerHTML='<div class="dlminimsg" style="max-width:250px">'+esc(depthNoData)+
+        ' <button class="dlsw" onclick="openDepthPicker()">sources</button></div>';
+      L.DomEvent.disableClickPropagation(d);
+      return d;
+    }
     if(!depthLegendOpen){
       d.innerHTML='<button class="dlmini" onclick="toggleDepthLegend()">'+
         '\uD83C\uDF0A '+esc(s.n)+(depthAuto?' <span class="dlcar" style="opacity:.6">auto</span>':'')+
@@ -2342,6 +2372,13 @@ let BT=null;              // null = not tried, {…} = found, {err} = tried and 
 let BT_TPL_LEFT='';       // placeholders the service used that we could not fill
 let BT_LAST='';           // last coverage verdict, so the picker can report it honestly
 
+function btPlain(m){
+  if(/valid XML|parsererror|HTTP \d/i.test(m)) return 'NOAA\u2019s seafloor service is not responding properly just now.';
+  if(/no BlueTopo layer/i.test(m))             return 'NOAA is not publishing its seafloor survey here.';
+  if(/web-mercator/i.test(m))                  return 'NOAA\u2019s seafloor survey is not offered in a form this map can draw.';
+  return 'NOAA\u2019s seafloor survey could not be reached.';
+}
+
 async function discoverBlueTopo(){
   if(BT) return BT;
   try{
@@ -2435,7 +2472,10 @@ async function discoverBlueTopo(){
         zmax: levels.length?Math.max(...levels):null,
         all:cands.slice(0,6).map(x=>x.id)};
   }catch(e){
-    BT={err:e.message||'could not reach nowCOAST'};
+    /* Two audiences: the angler, who needs a sentence, and the diagnostics
+       screen, which needs the detail. Shipping the raw reason to the map was
+       how "capabilities were not valid XML" ended up over a lake. */
+    BT={err:e.message||'could not reach nowCOAST', plain:btPlain(e.message||'')};
   }
   return BT;
 }
@@ -2533,21 +2573,23 @@ async function checkBlueTopo(){
      the empty placeholder. Counting its (nonexistent) tiles and announcing
      "requested no tiles here" would blame the service for our own wait. */
   if(!BT || !BT.url){
-    depthNote('Looking up NOAA\u2019s BlueTopo service\u2026');
+    depthNote('Looking up NOAA\u2019s seafloor survey\u2026');
     return {verdict:'pending'};
   }
-  depthNote('Checking BlueTopo coverage here\u2026');
+  depthNote('Checking seafloor survey coverage here\u2026');
   const w=await watchBlueTopoTiles(4500);          // what the tile IMAGES did
   /* "No layer to watch" and "a layer that asked for nothing" are different
      facts, and v44 printed the second sentence for both \u2014 so a layer that was
      never on the map was reported as a service that sent no tiles. */
   if(w.err){
-    depthNote('BlueTopo is not on the map to measure \u2014 '+w.err+
-              '. Tap "change", pick it again, and if this repeats use the charts.');
+    depthNote('');     // transient: the layer is mid-swap, nothing to report
     return {...w, verdict:(BT_LAST='absent')};
   }
   const t=await probeBlueTopoTile();               // optional, CORS-dependent
-  const where='Layer "'+(BT&&BT.title||'?')+'", set '+(BT&&BT.tms||'?')+'.';
+  /* The layer name and tile-grid were printed to the angler for weeks while
+     I debugged through his screenshots. That work is done; the detail now
+     lives in the depth check, where someone looking for it will find it. */
+  const where='';
 
   if(w.errored && !w.loaded){
     /* There are only two ways a WMTS server names a zoom level, and which one
@@ -2562,16 +2604,14 @@ async function checkBlueTopo(){
         ? BT.url.replace(encodeURIComponent(pre)+'{z}','{z}').replace(pre+'{z}','{z}')
         : BT.url.replace(/([\/=])\{z\}/, (m,p)=> p + (p==='=' ? encodeURIComponent(pre) : pre) + '{z}');
       BT.tmPat = BT.tmPat==='prefixed' ? 'plain' : 'prefixed';
-      depthNote('BlueTopo refused those tiles — retrying with the other zoom-level naming…');
+      depthNote('Retrying the seafloor survey a different way\u2026');
       const was=depthOn;
       if(depthLayer) map.removeLayer(depthLayer);
       depthLayer=buildDepthLayer();
       if(was){ depthLayer.addTo(map); paintDepthLegend(); }
       return new Promise(r=>setTimeout(()=>r(checkBlueTopo()),0));
     }
-    depthNote('BlueTopo is refusing these tiles. '+where+' '+w.errored+' rejected, both '+
-              'zoom-level namings tried. Tap "change" for the charts. ['+
-              (w.badUrl||'').split('/').slice(-4).join('/')+']');
+    depthNote('NOAA is refusing to send the seafloor survey for this area.');
     return {...w, verdict:(BT_LAST='rejected')};
   }
   if(!w.loaded && !w.errored){
@@ -2584,8 +2624,7 @@ async function checkBlueTopo(){
     else if(!w.onMap)  why='the layer was built but never put on the map.';
     else if(!w.zOk)    why='this zoom ('+w.z+') is outside the range the layer will draw.';
     else               why='the layer is on the map at zoom '+w.z+' and asked for nothing, which points at the tile grid name in the request rather than at your connection.';
-    depthNote('BlueTopo drew no tiles: '+why+' '+where+' [z'+w.z+' real'+(w.real?1:0)+
-              ' map'+(w.onMap?1:0)+' img'+w.tiles+']');
+    depthNote('No seafloor survey is drawing over this water.');
     return {...w, verdict:(BT_LAST='idle')};
   }
 
@@ -2593,20 +2632,16 @@ async function checkBlueTopo(){
      and reading their pixels needs CORS, which the tile host may not grant.
      If it does not, say what we know rather than inventing a failure. */
   if(t && t.cover===0){
-    depthNote('BlueTopo is answering ('+w.loaded+' tiles) but they are blank here. BlueTopo only exists where '+
-              'NOAA has run a hydrographic survey \u2014 bays, passes and open coastal water. Rivers and inland '+
-              'channels are usually dredged and surveyed by the Army Corps instead, so they are blank here.');
+    depthNote('No seafloor survey over this water. NOAA has surveyed the bays, passes and open coast \u2014 '+
+              'river channels are dredged and surveyed by the Army Corps instead.');
     btOfferChart();                      // does the chart have depths at this spot?
     return {...w, verdict:(BT_LAST='empty')};
   }
   if(t && t.cover>0){
-    depthNote('BlueTopo "'+(BT.title||BT.layer)+'" is drawing here \u2014 '+w.loaded+' tiles, '+
-              t.cover+'% of the sampled tile has data. Shading is surveyed depth, not charted soundings.');
+    depthNote('Shading is surveyed seafloor depth \u2014 read the edges, where it changes fast.');
     return {...w, verdict:(BT_LAST='drawing')};
   }
-  depthNote('BlueTopo is sending tiles ('+w.loaded+' loaded). This browser will not let the app read their '+
-            'contents, so trust your eyes: shading means a survey, plain water means none. BlueTopo only '+
-            'covers water NOAA has surveyed — bays, passes and the open coast, not the dredged river channels.');
+  depthNote('Shading is surveyed seafloor depth. Where the water looks plain, there is no survey.');
   btOfferChart();
   return {...w, verdict:(BT_LAST='loaded-unreadable')};
 }
