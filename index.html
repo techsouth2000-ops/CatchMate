@@ -445,6 +445,7 @@ button,input,select,textarea{font-family:inherit}
    turns it yellow, so lift it instead: the deep navy becomes a readable blue
    and the pale shallows stay pale. */
 .fwcbright img, img.fwcbright{filter:brightness(2.3) saturate(1.5)}
+.dlauto{font-size:10.5px;color:var(--mut);margin:-2px 0 7px;letter-spacing:.02em}
 .dlminimsg{margin-top:5px;max-width:230px;background:rgba(14,31,46,.94);border:1px solid var(--line2);
   border-radius:8px;padding:6px 9px;color:var(--ink2);font-size:10px;line-height:1.5}
 .dlegend.mini{padding:0;border:0;background:none;box-shadow:none;max-width:none}
@@ -632,7 +633,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v57 honest-diag</span></div>
+          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v58 auto-depth</span></div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -1034,11 +1035,15 @@ function buildDepthLayer(){
     /* The whole lake is 170 lines, so there is no paging and no tile grid:
        fetch it once, keep it, and draw it as vectors that stay crisp at any
        zoom — which is what an angler hunting a drop actually needs. */
-    l=L.layerGroup([]);
+    l=L.layerGroup([],{pane:'depthTiles'});
     okeeContours().then(gj=>{
       if(DEPTH_SOURCES[depthIdx].kind!=='okee') return;
       if(!gj){ depthNote('Could not reach the Lake Okeechobee survey just now.'); return; }
       const g=L.geoJSON(gj,{
+        /* Depth data belongs in the depth pane like every other source, so
+           one set of z-order rules governs all of them and the marker and
+           range ring still draw on top. */
+        pane:'depthTiles', renderer:L.svg({pane:'depthTiles'}),
         style:f=>({color:okeeColour(f.properties.CONTOUR), weight:1.4, opacity:0.95}),
         onEachFeature:(f,lyr)=>lyr.bindTooltip(okeeLabel(f.properties.CONTOUR),{sticky:true})
       });
@@ -1102,7 +1107,7 @@ function buildDepthLayer(){
           clearTimeout(window.__btT); window.__btT=setTimeout(checkBlueTopo,1400); } });
       }
     } else {
-      l=L.layerGroup([]);   // LayerGroup is an Evented, so the handlers below still bind
+      l=L.layerGroup([],{pane:'depthTiles'});   // an Evented, so the handlers below still bind
       discoverBlueTopo().then(bt=>{
         if(DEPTH_SOURCES[depthIdx].kind!=='bluetopo') return;
         if(bt.err){
@@ -1188,9 +1193,9 @@ function toggleDepth(){
     depthOn=false; btn.classList.remove('on');
     return;
   }
+  depthOn=true; btn.classList.add('on');
   if(!depthLayer) depthLayer=buildDepthLayer();
   depthLayer.addTo(map);
-  depthOn=true; btn.classList.add('on');
   paintDepthLegend();
   /* Soundings only render from about zoom 13. Zooming in on whatever the map
      happened to be centred on, though, is how this looked broken: from the
@@ -1200,7 +1205,36 @@ function toggleDepth(){
   const here = (state && state.lat!=null) ? [state.lat,state.lng] : null;
   if(here) map.setView(here, Math.max(map.getZoom(),14));
   else if(map.getZoom()<13) map.setZoom(13);
-  depthStatus();
+  if(depthAuto) chooseDepthForHere(); else depthStatus();
+}
+
+/* Ask every testable source what it has at this spot, switch to the one that
+   answers, and get on with it. */
+async function chooseDepthForHere(){
+  if(!depthOn || !depthAuto) return;
+  const c=(state && state.lat!=null) ? {lat:state.lat,lng:state.lng} : map.getCenter();
+  depthNote('Finding the best depth data for this water…');
+  const pick=await autoPickDepth(c.lat,c.lng);
+  if(!depthOn || !depthAuto) return;
+  depthAutoWhy=pick.why||'';
+  if(pick.idx!==depthIdx){
+    depthIdx=pick.idx;
+    if(depthLayer) map.removeLayer(depthLayer);
+    depthLayer=buildDepthLayer();
+    depthLayer.addTo(map);
+  }
+  paintDepthLegend();
+  if(pick.why==='nothing'){
+    depthNote('No depth survey covers this water. The lake surveys are freshwater lakes, and the '+
+              'chart covers tidal water and the Okeechobee Waterway — this spot is in neither. '+
+              'Everything else on the card still works for it.');
+  } else {
+    /* Including the untested BlueTopo case: it reports on itself, and those
+       messages are better than anything written here — one of them even
+       checks whether the chart covers the spot instead. Writing a second note
+       would only race it and lose. */
+    depthStatus();
+  }
 }
 
 /* One message slot, several sources — so whoever writes it must be the source
@@ -1441,6 +1475,8 @@ async function pickEncBand(lat,lng){
 /* Chart coverage varies by area, so let the angler pick the source rather
    than being stuck with whichever one loaded first. */
 function setDepthSource(i){
+  depthAuto=false;                 // they chose; stop second-guessing them
+  depthAutoWhy='';
   depthIdx=Math.max(0,Math.min(DEPTH_SOURCES.length-1,i));
   /* Drop the outgoing source's reading immediately. Keeping it meant the new
      layer's name sat above the old layer's depths until something overwrote
@@ -1457,6 +1493,43 @@ function setDepthSource(i){
    menu is really asked, and until now the angler answered it by trying each
    one and staring at a blank map. Ask the services directly. Only sources we
    can genuinely test are tested; the rest say so rather than guess. */
+/* One function answers "does this source have anything at this point?", and
+   both the menu and the automatic pick use it. Two copies of this logic was
+   how the menu and the map ended up disagreeing. */
+function sourceHasData(s,lat,lng){
+  /* The answers that need no network are returned outright, not wrapped in a
+     promise: making them async too meant every row flashed "checking" for a
+     verdict already in hand. */
+  if(s.kind==='bluetopo'){
+    return BT_LAST ? (BT_LAST==='drawing' ? {ok:true,t:'was drawing here'}
+                    : BT_LAST==='empty'   ? {ok:false,t:'no survey here'}
+                    : {ok:true,t:'tiles arriving \u2014 look'})
+                   : {ok:null,t:'saltwater surveys \u2014 try it'};
+  }
+  if(s.kind!=='enc' && s.kind!=='fwc' && s.kind!=='okee') return {ok:true,t:'always available'};
+  return sourceHasDataAsync(s,lat,lng);
+}
+async function sourceHasDataAsync(s,lat,lng){
+  try{
+    if(s.kind==='enc'){
+      const p=await pickEncBand(lat,lng);
+      const n=p.data?(p.data.soundings.length+p.data.contours.length):0;
+      return (p.band<0||!n) ? {ok:false,t:'nothing charted here'} : {ok:true,t:'has data here'};
+    }
+    if(s.kind==='fwc' || s.kind==='okee'){
+      const base = s.kind==='fwc' ? s.svc+'/'+s.lyr : s.svc;
+      const q=base+'/query?geometry='+lng+','+lat+'&geometryType=esriGeometryPoint&inSR=4326'+
+        '&distance=4000&units=esriSRUnit_Meter&spatialRel=esriSpatialRelIntersects'+
+        '&returnCountOnly=true&f=json';
+      const d=await Promise.race([fetch(q).then(r=>r.json()), timeout(10000)]);
+      if(d&&d.error) throw new Error('service error');
+      return (d&&d.count) ? {ok:true,t:'has data here'}
+                          : {ok:false,t: s.kind==='fwc'?'lake not surveyed':'outside the lake survey'};
+    }
+    return {ok:true,t:'always available'};
+  }catch(e){ return {ok:false,t:'could not check'}; }
+}
+
 let COV={};
 async function coverageHere(){
   const c=map.getCenter(), lat=c.lat, lng=c.lng;
@@ -1464,51 +1537,61 @@ async function coverageHere(){
   const paint=()=>{ DEPTH_SOURCES.forEach((s,i)=>{
     const el=document.getElementById('cov'+i); if(!el) return;
     const v=COV[i];
-    el.textContent = v===undefined ? 'checking…' : v.t;
-    el.style.color = v===undefined ? 'var(--mut)' : (v.ok?'#0a8f5f':'#c2410c');
+    el.textContent = v===undefined ? 'checking\u2026' : v.t;
+    el.style.color = v===undefined ? 'var(--mut)' : (v.ok?'#0a8f5f':v.ok===null?'var(--mut)':'#c2410c');
   }); };
-  paint();
-
-  const jobs=DEPTH_SOURCES.map(async (s,i)=>{
-    try{
-      if(s.kind==='enc'){
-        const p=await pickEncBand(lat,lng);
-        const n=p.data?(p.data.soundings.length+p.data.contours.length):0;
-        COV[i]= p.band<0||!n ? {ok:false,t:'nothing charted here'} : {ok:true,t:'has data here'};
-      } else if(s.kind==='fwc'){
-        const q=s.svc+'/'+s.lyr+'/query?geometry='+lng+','+lat+
-          '&geometryType=esriGeometryPoint&inSR=4326&distance=4000&units=esriSRUnit_Meter'+
-          '&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json';
-        const d=await Promise.race([fetch(q).then(r=>r.json()), timeout(10000)]);
-        if(d&&d.error) throw new Error('service error');
-        COV[i]= (d&&d.count) ? {ok:true,t:'has data here'} : {ok:false,t:'lake not surveyed'};
-      } else if(s.kind==='okee'){
-        const q=s.svc+'/query?geometry='+lng+','+lat+'&geometryType=esriGeometryPoint&inSR=4326'+
-          '&distance=5000&units=esriSRUnit_Meter&spatialRel=esriSpatialRelIntersects'+
-          '&returnCountOnly=true&f=json';
-        const d=await Promise.race([fetch(q).then(r=>r.json()), timeout(10000)]);
-        if(d&&d.error) throw new Error('service error');
-        COV[i]= (d&&d.count) ? {ok:true,t:'has data here'} : {ok:false,t:'outside the lake survey'};
-      } else if(s.kind==='bluetopo'){
-        /* Its tiles cannot be read cross-origin, so the only honest answer is
-           the verdict from the last time it was actually on the map. */
-        COV[i]= BT_LAST ? (BT_LAST==='drawing' ? {ok:true,t:'was drawing here'}
-                         : BT_LAST==='empty'   ? {ok:false,t:'no survey here'}
-                         : {ok:true,t:'tiles arriving — look'})
-                        : {ok:true,t:'saltwater surveys — try it'};
-      } else {
-        COV[i]={ok:true,t:'always available'};
-      }
-    }catch(e){ COV[i]={ok:false,t:'could not check'}; }
-    paint();
+  const pending=[];
+  DEPTH_SOURCES.forEach((s,i)=>{
+    const v=sourceHasData(s,lat,lng);
+    if(v && typeof v.then==='function') pending.push(v.then(x=>{ COV[i]=x; paint(); }));
+    else COV[i]=v;
   });
-  await Promise.all(jobs);
+  paint();
+  await Promise.all(pending);
+}
+
+/* ============ THE DEPTH LAYER PICKS ITSELF ============
+   Asking an angler to know that Lake Okeechobee needs one source, Istokpoga
+   another and the Caloosahatchee a third is asking him to do the app's job.
+   Tap water, get depth. The menu stays for overriding, not for finding. */
+let depthAuto=true, depthAutoWhy='';
+const AUTO_ORDER=['okee','fwc','enc'];   // most specific survey first, chart last
+
+async function autoPickDepth(lat,lng){
+  const cand=AUTO_ORDER
+    .map(k=>({k, i:DEPTH_SOURCES.findIndex(s=>s.kind===k)}))
+    .filter(c=>c.i>=0);
+  const res=await Promise.all(cand.map(c=>Promise.resolve(sourceHasData(DEPTH_SOURCES[c.i],lat,lng))));
+  for(let n=0;n<cand.length;n++){
+    if(res[n] && res[n].ok===true) return {idx:cand[n].i, why:null};
+  }
+  /* Nothing we can test has anything. BlueTopo is the only remaining
+     possibility and it cannot be tested without drawing it, so on salt water
+     it is worth a look; otherwise say plainly that nothing covers this. */
+  const bt=DEPTH_SOURCES.findIndex(s=>s.kind==='bluetopo');
+  /* BlueTopo is the only source that cannot be tested without drawing it, so
+     it is worth a look — unless it has already been seen to be blank here, in
+     which case nothing covers this water and the chart is the honest answer. */
+  if(bt>=0 && BT_LAST!=='empty') return {idx:bt, why:'untested'};
+  return {idx: DEPTH_SOURCES.findIndex(s=>s.kind==='enc'), why:'nothing'};
+}
+
+function depthAutoOn(){
+  depthAuto=true; closeModal();
+  if(depthOn) chooseDepthForHere();
 }
 
 function openDepthPicker(){
   openModal(`
     <div class="mtitle">🌊 Fishing map</div>
-    <div class="msub">Checked against the water on screen right now — pick one that has data here.</div>
+    <div class="msub">Bitecast picks the right depth data for whatever water you tap. Override it here if you want a particular source \u2014 checked against the water on screen right now.</div>
+    <button class="slrow" onclick="depthAutoOn()">
+      <div class="slic">${depthAuto?'✓':'🤖'}</div>
+      <div style="flex:1;min-width:0;text-align:left">
+        <div class="slname">Automatic${depthAuto?' <span class="chip">in use</span>':''}</div>
+        <div class="slsub">Uses the best survey for the water under your tap \u2014 lake survey, chart or seafloor model.</div>
+      </div><div class="arrow">\u203A</div>
+    </button>
     ${DEPTH_SOURCES.map((s,i)=>`
       <button class="slrow" onclick="setDepthSource(${i})">
         <div class="slic">${i===depthIdx?'✓':'🌊'}</div>
@@ -1636,13 +1719,17 @@ function paintDepthLegend(){
     const d=L.DomUtil.create('div','dlegend'+(depthLegendOpen?'':' mini'));
     if(!depthLegendOpen){
       d.innerHTML='<button class="dlmini" onclick="toggleDepthLegend()">'+
-        '\uD83C\uDF0A '+esc(s.n)+' <span class="dlcar">\u25B4</span></button>'+
+        '\uD83C\uDF0A '+esc(s.n)+(depthAuto?' <span class="dlcar" style="opacity:.6">auto</span>':'')+
+        ' <span class="dlcar">\u25B4</span></button>'+
         (depthMsgText?'<div class="dlminimsg">'+esc(depthMsgText)+'</div>':'');
     } else {
       d.innerHTML=
       '<div class="dlt">'+esc(s.n)+
         '<span><button class="dlsw" onclick="openDepthPicker()">change</button>'+
         '<button class="dlx" onclick="toggleDepthLegend()" aria-label="Collapse">\u2715</button></span></div>'+
+      /* The source name changes by itself now, so say why rather than leaving
+         the angler to wonder what he pressed. */
+      (depthAuto?'<div class="dlauto">chosen automatically for this water</div>':'')+
       /* Describe what is actually drawn. BlueTopo is a continuous shaded
          surface built from survey data \u2014 it has no printed soundings and no
          contour lines, so explaining how to read those under its name told
@@ -5279,6 +5366,10 @@ async function lookup(lat,lng,radiusOverride){
   SPOTS=null; SPOTS_ERR=null; FLOW=null; FLOW_DONE=false;
   if(spotLayer){ map.removeLayer(spotLayer); spotLayer=null; }
   render();
+  /* New water, so the right depth source may have changed. Tapping Lake
+     Okeechobee and then the Caloosahatchee needs two different surveys, and
+     working that out is the app's job, not the angler's. */
+  if(depthOn && depthAuto) chooseDepthForHere();
 
   // tides and weather load in the background so the fish list is not held up
   if(id.type!=='fresh'){
