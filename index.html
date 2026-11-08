@@ -45,6 +45,9 @@ button,input,select,textarea{font-family:inherit}
 
 /* ---------- header ---------- */
 .head{padding:14px 18px 12px;border-bottom:1px solid var(--line);background:var(--s1)}
+.head.compact{padding:9px 18px 8px}
+.head.compact .tag{display:none}
+.head.compact .brand span{font-size:15px}
 .logo{font-size:19px;font-weight:700;letter-spacing:-.02em;color:var(--ink);
   display:flex;align-items:center;gap:9px}
 .mark{width:30px;height:30px;flex-shrink:0;border-radius:9px}
@@ -64,9 +67,9 @@ button,input,select,textarea{font-family:inherit}
   border:1px solid rgba(230,103,103,.28);border-radius:var(--r2);padding:10px 12px;margin-bottom:10px;line-height:1.55}
 .loc{font-size:23px;font-weight:700;letter-spacing:-.025em;line-height:1.15}
 .sub{font-size:11px;color:var(--ink3);margin-top:5px}
-.pill{display:inline-block;font-size:9.5px;font-weight:700;color:#052419;padding:4px 10px;
-  border-radius:20px;margin-top:9px;letter-spacing:.04em;text-transform:uppercase}
-.salt{background:#4aa3ff}.fresh{background:var(--acc)}.brack{background:#a78bfa}.unk{background:#64748b}
+.pill{display:inline-block;font-size:10.5px;font-weight:600;padding:3px 9px 3px 8px;
+  border-radius:6px;margin-top:9px;background:transparent;border:1px solid currentColor}
+.salt{color:#7fbcff}.fresh{color:#6fdcb8}.brack{color:#b9a6fb}.unk{color:#8b97a6}
 
 /* ---------- tabs ---------- */
 .tabs{display:flex;gap:4px;margin:16px 0 13px;overflow-x:auto;scrollbar-width:none;
@@ -79,10 +82,17 @@ button,input,select,textarea{font-family:inherit}
 .tab.on{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
 
 /* ---------- hero score ---------- */
-.hero{background:linear-gradient(160deg,var(--s2) 0%,var(--s1) 70%);
-  border:1px solid var(--line);border-radius:var(--r);padding:17px 18px;margin-bottom:11px}
+.hero{position:relative;overflow:hidden;background:linear-gradient(160deg,var(--s2) 0%,var(--s1) 70%);
+  border:1px solid var(--line2);border-radius:var(--r);
+  padding:17px 18px 46px;margin-bottom:14px}
+/* The curve sits behind the number, bottom-aligned, so the score reads first
+   and the shape of the day is picked up second. */
+.heroCv{position:absolute;left:0;right:0;bottom:0;width:100%;height:40px;pointer-events:none}
+.heroPeak{position:absolute;right:16px;bottom:11px;font-size:10.5px;color:var(--ink3)}
+.heroPeak b{color:var(--ink2);font-weight:650}
+.heroTop,.heroWhy{position:relative}
 .heroTop{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
-.heroLbl{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3)}
+.heroLbl{font-size:12px;font-weight:500;letter-spacing:0;color:var(--ink3)}
 .heroNum{font-size:54px;font-weight:800;line-height:.95;letter-spacing:-.045em;margin:6px 0 2px;
   font-variant-numeric:tabular-nums}
 .heroOf{font-size:17px;font-weight:600;color:var(--ink3);letter-spacing:-.01em;margin-left:2px}
@@ -103,8 +113,14 @@ button,input,select,textarea{font-family:inherit}
 .scLbl{font-size:8.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px}
 
 /* ---------- panels ---------- */
-.panel{background:var(--s1);border:1px solid var(--line);border-radius:var(--r);
-  padding:14px 15px;margin-bottom:11px}
+/* Boxes everywhere meant nothing was the answer. The score keeps the box;
+   everything after it is a section divided by space and a hairline, which is
+   quieter to read and lets the eye travel down the page instead of hopping
+   between identical containers. */
+.panel{background:transparent;border:0;border-top:1px solid var(--line);
+  border-radius:0;padding:15px 2px 4px;margin-bottom:6px}
+.panel:first-of-type{border-top:0}
+.pTitle{color:var(--ink)}
 .pTitle{font-size:12.5px;font-weight:700;letter-spacing:-.01em;margin-bottom:9px;
   display:flex;justify-content:space-between;align-items:center;gap:8px}
 .pSwap{background:var(--s2);border:1px solid var(--line2);color:var(--ink2);font-size:10px;
@@ -167,8 +183,7 @@ button,input,select,textarea{font-family:inherit}
 .fbigwrap{display:block;position:relative;margin-top:11px}
 .fbigwrap .fbig{margin-top:0}
 .fbigcap{font-size:9px;color:var(--ink3);text-align:right;margin-top:4px}
-.lbl{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--acc);margin:13px 0 6px}
+.lbl{font-size:12px;font-weight:650;letter-spacing:0;color:var(--ink2);margin:15px 0 6px}
 .hint{font-size:11px;color:var(--ink3);margin-bottom:11px;line-height:1.6}
 .hint2{font-size:10px;color:var(--ink3);margin-top:5px;line-height:1.55}
 .nod{font-size:11.5px;color:var(--ink3);line-height:1.65;padding:11px 0}
@@ -446,6 +461,13 @@ button,input,select,textarea{font-family:inherit}
    and the pale shallows stay pale. */
 .fwcbright img, img.fwcbright{filter:brightness(2.3) saturate(1.5)}
 .dlauto{font-size:10.5px;color:var(--mut);margin:-2px 0 7px;letter-spacing:.02em}
+.camcard{border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:10px;background:var(--pnl)}
+.camimg{display:block;width:100%;height:170px;object-fit:cover;background:#0e1620;cursor:zoom-in}
+.camimg.camdead{display:none}
+.camfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:8px 11px;font-size:12px;color:var(--mut);flex-wrap:wrap}
+.camerr{flex:1 0 100%;color:#d6a93e;font-size:12px;line-height:1.5;margin-bottom:4px}
+.cambig{display:block;width:100%;border-radius:10px;margin:10px 0}
 .dlminimsg{margin-top:5px;max-width:230px;background:rgba(14,31,46,.94);border:1px solid var(--line2);
   border-radius:8px;padding:6px 9px;color:var(--ink2);font-size:10px;line-height:1.5}
 .dlegend.mini{padding:0;border:0;background:none;box-shadow:none;max-width:none}
@@ -604,7 +626,7 @@ button,input,select,textarea{font-family:inherit}
       </div>
       <div class="pkUp">▲</div>
     </button>
-    <div class="head">
+    <div class="head" id="sheethead">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div>
           <div class="logo" onclick="openLanding()" role="button" tabindex="0"
@@ -633,7 +655,7 @@ button,input,select,textarea{font-family:inherit}
             </svg>
             <span>Bitecast</span>
           </div>
-          <div class="tag">Tap any water. Know what's biting, when, and how. <span style="color:#0a8f5f;font-weight:700">· v62 tap-depth</span></div>
+          <div class="tag" id="tagline">Tap any water. Know what's biting, when, and how.</div>
         </div>
         <button class="acct" id="acctbtn" onclick="openAccount()">Sign in</button>
       </div>
@@ -2158,6 +2180,7 @@ const LP_HOME=[27.6,-81.6];          // Florida, for times before a water is pic
 
 function lpKey(e){ if(e.key==='Escape' && LP.open) landingGo(); }
 function openLanding(){
+  const hd=document.getElementById('sheethead'); if(hd) hd.classList.remove('compact');
   const el=document.getElementById('landing'); if(!el) return;
   document.addEventListener('keydown', lpKey);
   el.classList.add('on'); LP.open=true;
@@ -2907,7 +2930,10 @@ async function runDiagnostics(){
   const blocked=results.filter((r,i)=>i>=3&&i<=4&&!r).length;
   const charts=results.slice(CHART_FROM);
   const chartsOk=charts.filter(Boolean).length;
-  let h='<div class="loc">Connection test</div><div class="sub">What this browser is allowed to reach</div>';
+  /* The build number belongs here, where someone checking the app looks for
+     it, not above the fishing card on every screen. */
+  let h='<div class="loc">Connection test</div>'+
+        '<div class="sub">What this browser is allowed to reach \u00b7 build v65 hierarchy</div>';
   /* The rows that matter are below the fold on a phone, so the answer goes
      first. A blocked host here is usually the network, not the app — and one
      blocked chart host looks exactly like a layer that does not work. */
@@ -4320,8 +4346,13 @@ function todayHTML(){
   const band=biteBand(b.score);
   let h='';
 
-  /* ---- hero ---- */
+  /* ---- hero ----
+     Every block on this screen used to be the same bordered card, so nothing
+     claimed to be the answer. This is now the one boxed thing, and it carries
+     the day's curve behind the number: "is it good now" and "when is it
+     better" are the two questions, and they are answered together. */
   h+=`<div class="hero">
+    ${heroCurve(st)}
     <div class="heroTop">
       <div>
         <div class="heroLbl">Bite score now</div>
@@ -4398,6 +4429,37 @@ function biteSummary(b,band){
   if(top) bits.push('helped most by '+top.d.toLowerCase());
   if(bot) bits.push('held back by '+bot.d.toLowerCase());
   return bits.join(', ')+'.';
+}
+
+/* The day's bite as one quiet line behind the score. Not a second chart:
+   no axis, no grid, no labels except the peak — it exists to show the shape
+   of the day and where "now" sits on it. The hour-by-hour chart further down
+   is where exact numbers live. */
+function heroCurve(st){
+  let rows;
+  try{ rows=hourlyBite(st.lat,st.lng,WX,st.tide,0); }catch(e){ return ''; }
+  if(!rows || rows.length<4) return '';
+  const W=100, H=26, n=rows.length;
+  const x=i=>(i/(n-1))*W;
+  const y=v=>H-(Math.max(0,Math.min(100,v))/100)*(H-3)-1.5;
+  const pts=rows.map((r,i)=>x(i).toFixed(2)+','+y(r.score).toFixed(2));
+  const line='M'+pts.join(' L');
+  const area=line+` L${W},${H} L0,${H} Z`;
+  const nowH=Math.min(n-1,new Date().getHours());
+  const best=rows.reduce((a,r,i)=>r.score>rows[a].score?i:a,0);
+  const bestLbl=best===0?'12a':best===12?'12p':best>12?(best-12)+'p':best+'a';
+  return `<svg class="heroCv" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+      <defs><linearGradient id="hcg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--acc)" stop-opacity=".30"/>
+        <stop offset="100%" stop-color="var(--acc)" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="${area}" fill="url(#hcg)"/>
+      <path d="${line}" fill="none" stroke="var(--acc)" stroke-opacity=".75"
+            stroke-width="1" vector-effect="non-scaling-stroke"/>
+      <line x1="${x(nowH).toFixed(2)}" y1="0" x2="${x(nowH).toFixed(2)}" y2="${H}"
+            stroke="#eef4f8" stroke-opacity=".5" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <div class="heroPeak">Best around <b>${bestLbl}</b></div>`;
 }
 
 /* Hourly bars. One measure, so a sequential ramp and no legend —
@@ -5024,6 +5086,7 @@ function spotsHTML(){
   h+=`<div class="hint">Structure within ${SPOTS_NARROW?'3.5':'7'} miles, ranked against those conditions. Every spot says why it made the list — and why it might not be the one today.${SPOTS_NARROW?' <b>OpenStreetMap was busy, so this is the closer-in search.</b>':''}</div>`;
 
   h+=flowHTML();
+  h+=camsHTML();
   if(SPOTS_ERR) h+=msg('Could not load structure: '+SPOTS_ERR);
   if(SPOTS===null) return h+`<div class="nod"><span class="spin"></span>Reading the structure around here…</div>`;
   if(!SPOTS.length){
@@ -5057,6 +5120,89 @@ function spotsHTML(){
   });
   h+=`<div class="foot">Structure from OpenStreetMap. Ranking is a reading of tide stage, daylight and feeding periods against how each kind of structure normally fishes — it is a starting point, not a guarantee. Local knowledge beats it every time.</div>`;
   return h;
+}
+
+/* ============ SPILLWAY CAMERAS ============
+   The Corps of Engineers publishes a camera at four Okeechobee Waterway
+   structures. They are STILLS refreshed about every five minutes when the
+   link to the structure is up — not video — and the app says so, because an
+   angler deciding whether to run down there deserves to know he is looking at
+   a picture that could be five minutes old.
+
+   No coordinates here on purpose: the positions could not be verified from
+   where this was written, and a camera pinned to an invented point is worse
+   than one matched by name. Each camera names the water it sits on, and the
+   water the angler tapped is matched against that. */
+const SPILLCAMS=[
+  {id:'s77',  code:'S-77',  n:'Moore Haven Spillway',
+   look:'downstream side', on:['okeechobee','moore haven','rim canal','caloosahatchee']},
+  {id:'s79',  code:'S-79',  n:'Franklin Lock & Dam',
+   look:'the lock and dam', on:['caloosahatchee','franklin','olga','orange river']},
+  {id:'s308', code:'S-308', n:'Port Mayaca Spillway',
+   look:'downstream side', on:['okeechobee','port mayaca','st lucie','st. lucie']},
+  {id:'s80',  code:'S-80',  n:'St. Lucie Spillway',
+   look:'downstream side', on:['st lucie','st. lucie','okeechobee waterway','indian']}
+];
+const SPILLCAM_URL=id=>'https://w3.saj.usace.army.mil/h2o/cam/'+id+'.jpg';
+
+function camsForWater(name){
+  const w=(name||'').toLowerCase();
+  if(!w) return [];
+  return SPILLCAMS.filter(c=>c.on.some(k=>w.includes(k)));
+}
+
+/* A new query string each time, so the phone shows the newest frame rather
+   than the one it cached when the tab first opened. */
+function camSrc(id){ return SPILLCAM_URL(id)+'?t='+Date.now(); }
+
+function camsHTML(){
+  const cams=camsForWater(state&&state.name);
+  if(!cams.length) return '';
+  return '<div class="lbl" style="margin-top:14px">Spillway cameras</div>'+
+    '<div class="hint2" style="margin:-2px 0 8px">U.S. Army Corps of Engineers. Still pictures, '+
+    'refreshed about every five minutes when the link to the structure is up \u2014 not live video.</div>'+
+    cams.map(c=>`<div class="camcard">
+        <img class="camimg" id="cam-${c.id}" alt="${esc(c.code+' '+c.n)}"
+             referrerpolicy="no-referrer" loading="lazy"
+             src="${esc(camSrc(c.id))}"
+             onclick="openCam('${c.id}')"
+             onerror="camFailed('${c.id}')">
+        <div class="camfoot">
+          <span><b>${esc(c.code)}</b> ${esc(c.n)} \u00b7 ${esc(c.look)}</span>
+          <button class="dlsw" onclick="refreshCam('${c.id}')">refresh</button>
+        </div>
+      </div>`).join('');
+}
+
+function refreshCam(id){
+  const el=document.getElementById('cam-'+id);
+  if(!el) return;
+  el.classList.remove('camdead');
+  el.src=camSrc(id);
+}
+
+/* A broken image box tells the angler nothing. Say which camera is down and
+   that the structure itself may still be running \u2014 the camera and the gates
+   are different things, and confusing them could send him to the wrong water. */
+function camFailed(id){
+  const el=document.getElementById('cam-'+id);
+  if(!el || el.classList.contains('camdead')) return;
+  el.classList.add('camdead');
+  const foot=el.parentElement && el.parentElement.querySelector('.camfoot');
+  if(foot && !foot.querySelector('.camerr'))
+    foot.insertAdjacentHTML('afterbegin',
+      '<div class="camerr">Picture not coming through. The gates may still be running \u2014 '+
+      'the flow reading above is the one to trust.</div>');
+}
+
+function openCam(id){
+  const c=SPILLCAMS.find(x=>x.id===id); if(!c) return;
+  openModal('<div class="mtitle">\uD83D\uDCF7 '+esc(c.code+' '+c.n)+'</div>'+
+    '<div class="msub">'+esc(c.look.charAt(0).toUpperCase()+c.look.slice(1))+
+    '. A still from the Army Corps, refreshed about every five minutes \u2014 not live video.</div>'+
+    '<img class="cambig" src="'+esc(camSrc(id))+'" referrerpolicy="no-referrer" alt="'+esc(c.code)+'">'+
+    '<button class="btn" onclick="document.querySelector(\'.cambig\').src=camSrc(\''+id+'\')">Refresh the picture</button>'+
+    '<button class="btn alt" onclick="closeModal()">Close</button>');
 }
 
 function flowHTML(){
@@ -5157,6 +5303,18 @@ function status(msg){
 
 function render(){
   const {name,type,lat,lng,counts,recent,radius,idsrc,fishErr} = state;
+  /* Every one of these was being printed to the angler verbatim: "identified
+     via contained polygon", "via nearest named feature". That is the lookup
+     explaining its own method. Say it the way a person would. */
+  const SRC_PLAIN={
+    'waterway you tapped' : 'The water you tapped',
+    'contained polygon'   : 'The water you tapped',
+    'nearest named feature':'Nearest named water to your tap',
+    'offline list'        : 'Named from the built-in Florida list',
+    'your device'         : 'Where you are standing',
+    'lookup failed'       : 'Name lookup is down \u2014 using the built-in list',
+    'not found'           : 'Unnamed on the map'
+  };
   /* Reachable with nothing tapped yet: "See the community feed" in the profile
      sheet calls setTab('feed') then render(). Without this guard lat.toFixed
      throws and the whole panel goes blank, including every later render when
@@ -5189,12 +5347,19 @@ function render(){
   }
 
   let h='';
+  /* Once he is looking at a water body the brand line and tagline are just
+     taking the top fifth of the panel on every tab. Give it back. */
+  const hd=document.getElementById('sheethead'); if(hd) hd.classList.add('compact');
   h+=`<button class="homeb" onclick="openLanding()">\u2039 Home</button>`;
   h+=`<div class="loc">${esc(name||'Unnamed water')}</div>`;
   /* In area mode nothing was identified, so saying so would be a small lie. */
+  /* The six-decimal co-ordinates and the name of the lookup service were the
+     app describing its own plumbing in the most valuable line on the screen.
+     Keep the provenance — it matters when a name is wrong — but as a quiet
+     aside, not as the subtitle. */
   h+=state.areaOnly
-    ? `<div class="sub">${lat.toFixed(4)}, ${lng.toFixed(4)} · from your device</div>`
-    : `<div class="sub">${lat.toFixed(4)}, ${lng.toFixed(4)} · identified via ${esc(idsrc)}</div>`;
+    ? `<div class="sub">Conditions where you are standing</div>`
+    : `<div class="sub">${esc(SRC_PLAIN[idsrc]||'from the map')}</div>`;
   if(!state.areaOnly) h+=`<div class="pill ${cls}">${label}</div>`;
 
   /* Area mode answers two questions and should only offer those two. Fish,
@@ -5214,14 +5379,11 @@ function render(){
         <button class="tab ${state.tab==='feed'?'on':''}" onclick="setTab('feed')">Community</button>
        </div>`;
 
-  /* This fired whenever ONE lookup service was down and put a red alarm with
-     a "run a connection test" link on every tab, every tap. Overpass goes
-     down often, the app names the water from its built-in list perfectly well
-     when it does, and the angler was being sent to a diagnostics screen
-     instead of his fishing card. Say it once, quietly, in a line. */
-  /* Where the name came from is already printed under the title, so repeating
-     it here was a second notice for one fact. Only say something when a thing
-     the angler asked for is genuinely missing: the catch records. */
+  /* A red alarm with a "run a connection test" link appeared on every tab
+     whenever one lookup service was down. Overpass goes down often and the
+     app names the water perfectly well from its built-in list when it does,
+     so the angler was sent to a diagnostics screen instead of his card. Only
+     speak up when something he asked for is genuinely missing. */
   if(fishErr){
     h+=`<div class="nod" style="margin:4px 0 10px">Recent catch records are unavailable just now \u2014 species below come from the built-in Florida list.</div>`;
   }
@@ -5416,8 +5578,7 @@ async function lookup(lat,lng,radiusOverride){
   render();
   /* Depth is the point. It was an off-by-default option buried in a Layers
      sheet, so tapping a lake never showed contours unless the angler went
-     hunting for a switch — which is the thing he asked for in the first
-     place. Turn it on with the water, unless he has turned it off himself. */
+     hunting for a switch. Turn it on with the water, unless he turned it off. */
   if(!depthOn && !depthUserOff){
     depthOn=true;
     const btn=document.getElementById('b-depth'); if(btn) btn.classList.add('on');
