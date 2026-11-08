@@ -1261,9 +1261,11 @@ async function chooseDepthForHere(){
      the layer off, say it once, in one line, and get out of the way. */
   if(pick.idx<0){
     if(depthLayer){ map.removeLayer(depthLayer); depthLayer=null; }
-    depthNoData = (type==='fresh')
-      ? 'No depth survey exists for this lake. Most Florida lakes have never been surveyed.'
-      : 'No depth survey or chart covers this spot.';
+    depthNoData = pick.why==='unknown'
+      ? 'Could not reach the depth services just now \u2014 this may well be charted. Tap the water again in a moment.'
+      : (type==='fresh')
+        ? 'No depth survey exists for this lake. Most Florida lakes have never been surveyed.'
+        : 'No depth survey or chart covers this spot.';
     depthNote('');
     paintDepthLegend();
     return;
@@ -1639,7 +1641,15 @@ async function autoPickDepth(lat,lng,type){
     const r=await Promise.resolve(sourceHasData(c.s,lat,lng));
     if(r && r.ok===true) return {idx:c.i, why:null};
   }
-  return {idx:-1, why:'nothing'};     // -1 = draw nothing, and say so once
+  /* "Nothing covers this water" and "the services did not answer" are
+     different facts, and reporting the second as the first is how the app
+     told him Lake Okeechobee had never been surveyed. Pass the distinction
+     up so the message can be honest. */
+  const checked=await Promise.all(allowed
+    .filter(c=>['enc','fwc','okee','raster'].includes(c.s.kind))
+    .map(c=>Promise.resolve(sourceHasData(c.s,lat,lng))));
+  const anyErrored=checked.some(r=>r && /could not check/.test(r.t||''));
+  return {idx:-1, why: anyErrored ? 'unknown' : 'nothing'};
 }
 
 function depthAutoOn(){
@@ -2945,7 +2955,7 @@ async function runDiagnostics(){
   /* The build number belongs here, where someone checking the app looks for
      it, not above the fishing card on every screen. */
   let h='<div class="loc">Connection test</div>'+
-        '<div class="sub">What this browser is allowed to reach \u00b7 build v67 cam-age</div>';
+        '<div class="sub">What this browser is allowed to reach \u00b7 build v68 honest-gaps</div>';
   /* The rows that matter are below the fold on a phone, so the answer goes
      first. A blocked host here is usually the network, not the app — and one
      blocked chart host looks exactly like a layer that does not work. */
@@ -5100,7 +5110,10 @@ function spotsHTML(){
   h+=flowHTML();
   h+=camsHTML();
   setTimeout(paintCamAges,0);   // after this html is in the DOM
-  if(SPOTS_ERR) h+=msg('Could not load structure: '+SPOTS_ERR);
+  /* The paragraph below already explains an empty list, so a red alarm above
+     it said the same thing twice and made a busy public API look like a
+     fault in the app. */
+  if(SPOTS_ERR) h+='';
   if(SPOTS===null) return h+`<div class="nod"><span class="spin"></span>Reading the structure around here…</div>`;
   if(!SPOTS.length){
     /* "No structure within 7 miles" is a strong claim and it was being made
@@ -5243,7 +5256,7 @@ async function paintCamAges(){
     if(!foot || foot.querySelector('.camage')) continue;
     const ms=await camAge(c.id);
     if(!document.getElementById('cam-'+c.id)) continue;      // they moved on
-    const a=ms==null ? {t:'Age unknown \u2014 read the date stamped on the picture', stale:false}
+    const a=ms==null ? {t:'Age unknown \u2014 the Corps server will not say when this was taken, and these cameras run days behind. Some stamp the time on the picture; this one may not.', stale:false}
                      : camAgeText(ms);
     foot.insertAdjacentHTML('afterbegin',
       '<div class="camage'+(a.stale?' camstale':' ')+'">'+esc(a.t)+'</div>');
@@ -5537,7 +5550,7 @@ function render(){
   }
 
   h+=`<div class="foot">
-        Water body from OpenStreetMap (Overpass API). Fish records and identification photos from iNaturalist — verified public observations, so they show what is actually documented in the area rather than a guess.<br><br>
+        Water names and structure come from OpenStreetMap. Fish records and identification photos come from iNaturalist — verified public sightings, so they show what people have actually documented nearby rather than a guess.<br><br>
         <b>Limits shown were checked against FWC on ${REG_CHECKED} and are a starting point, not legal advice.</b> Florida manages redfish, snook and seatrout by region, and reef fish seasons can change by executive order mid-season. Confirm on myfwc.com before you keep anything, and carry the right licence and permits.
       </div>`;
   out().innerHTML=h;
