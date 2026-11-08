@@ -390,6 +390,7 @@ button,input,select,textarea{font-family:inherit}
 .lpsec{padding:13px;border:1px solid var(--line2);border-radius:12px;background:var(--s1);
   color:var(--ink);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit}
 .lpsec:active{background:var(--s2)}
+.lpwide{width:100%;margin-top:9px}
 .lpgo:focus-visible,.lpsec:focus-visible,.lpcomall:focus-visible,.lpcard:focus-visible{
   outline:2px solid var(--acc);outline-offset:3px}
 
@@ -462,12 +463,18 @@ button,input,select,textarea{font-family:inherit}
 .fwcbright img, img.fwcbright{filter:brightness(2.3) saturate(1.5)}
 .dlauto{font-size:10.5px;color:var(--mut);margin:-2px 0 7px;letter-spacing:.02em}
 .camcard{border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:10px;background:var(--pnl)}
-.camimg{display:block;width:100%;height:170px;object-fit:cover;background:#0e1620;cursor:zoom-in}
+/* NEVER crop this image. The Corps burns the capture date into a red bar
+   across the top of the frame, and a fixed height with object-fit:cover cut
+   it off — so an eleven-day-old picture looked like a live one. The stamp is
+   the only freshness signal the browser is allowed to see. */
+.camimg{display:block;width:100%;max-width:100%;height:auto;background:#0e1620;cursor:zoom-in}
 .camimg.camdead{display:none}
 .camfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;
   padding:8px 11px;font-size:12px;color:var(--mut);flex-wrap:wrap}
 .camerr{flex:1 0 100%;color:#d6a93e;font-size:12px;line-height:1.5;margin-bottom:4px}
-.cambig{display:block;width:100%;border-radius:10px;margin:10px 0}
+.camage{flex:1 0 100%;font-size:11.5px;line-height:1.5;margin-bottom:3px}
+.camstale{color:#e0754a;font-weight:650}
+.cambig{display:block;width:100%;max-width:100%;height:auto;border-radius:10px;margin:10px 0}
 .dlminimsg{margin-top:5px;max-width:230px;background:rgba(14,31,46,.94);border:1px solid var(--line2);
   border-radius:8px;padding:6px 9px;color:var(--ink2);font-size:10px;line-height:1.5}
 .dlegend.mini{padding:0;border:0;background:none;box-shadow:none;max-width:none}
@@ -501,11 +508,15 @@ button,input,select,textarea{font-family:inherit}
 .ob.unk{background:var(--s3);color:var(--ink3)}
 
 /* ---------- modal ---------- */
-.modal{display:none;position:fixed;inset:0;background:rgba(4,10,16,.7);z-index:2000;
+/* Above the landing overlay (z 4000). It sat below, so any sheet opened from
+   the front door rendered underneath it and looked like a dead button. The
+   existing front-door buttons all close the landing first, which is why this
+   never showed until something opened a sheet directly. */
+.modal{display:none;position:fixed;inset:0;background:rgba(4,10,16,.7);z-index:5000;
   align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)}
 .modal.on{display:flex}
 .sheet{background:var(--s1);border:1px solid var(--line2);width:100%;max-width:540px;
-  max-height:88vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:22px 19px 34px}
+  max-height:88vh;overflow-y:auto;overflow-x:hidden;border-radius:18px 18px 0 0;padding:22px 19px 34px}
 @media(min-width:821px){.modal{align-items:center}.sheet{border-radius:var(--r);max-height:86vh}}
 .mtitle{font-size:20px;font-weight:700;letter-spacing:-.025em;margin-bottom:5px}
 .msub{font-size:12px;color:var(--ink3);line-height:1.65;margin-bottom:17px}
@@ -711,6 +722,7 @@ button,input,select,textarea{font-family:inherit}
         <button class="lpsec" onclick="landingTo('today')">Weather now</button>
         <button class="lpsec" onclick="landingTo('cond')">Tide times</button>
       </div>
+      <button class="lpsec lpwide" onclick="openSpillways()">Spillway cameras</button>
     </div>
 
     <div class="lpcom">
@@ -2933,7 +2945,7 @@ async function runDiagnostics(){
   /* The build number belongs here, where someone checking the app looks for
      it, not above the fishing card on every screen. */
   let h='<div class="loc">Connection test</div>'+
-        '<div class="sub">What this browser is allowed to reach \u00b7 build v65 hierarchy</div>';
+        '<div class="sub">What this browser is allowed to reach \u00b7 build v67 cam-age</div>';
   /* The rows that matter are below the fold on a phone, so the answer goes
      first. A blocked host here is usually the network, not the app — and one
      blocked chart host looks exactly like a layer that does not work. */
@@ -5087,6 +5099,7 @@ function spotsHTML(){
 
   h+=flowHTML();
   h+=camsHTML();
+  setTimeout(paintCamAges,0);   // after this html is in the DOM
   if(SPOTS_ERR) h+=msg('Could not load structure: '+SPOTS_ERR);
   if(SPOTS===null) return h+`<div class="nod"><span class="spin"></span>Reading the structure around here…</div>`;
   if(!SPOTS.length){
@@ -5159,8 +5172,9 @@ function camsHTML(){
   const cams=camsForWater(state&&state.name);
   if(!cams.length) return '';
   return '<div class="lbl" style="margin-top:14px">Spillway cameras</div>'+
-    '<div class="hint2" style="margin:-2px 0 8px">U.S. Army Corps of Engineers. Still pictures, '+
-    'refreshed about every five minutes when the link to the structure is up \u2014 not live video.</div>'+
+    '<div class="hint2" style="margin:-2px 0 8px">U.S. Army Corps of Engineers. Still pictures, not video \u2014 '+
+    'and often <b>days out of date</b>, because the link to these structures goes down for long stretches. '+
+    'The red bar on each picture is its capture time. Trust the flow reading above it.</div>'+
     cams.map(c=>`<div class="camcard">
         <img class="camimg" id="cam-${c.id}" alt="${esc(c.code+' '+c.n)}"
              referrerpolicy="no-referrer" loading="lazy"
@@ -5172,6 +5186,68 @@ function camsHTML(){
           <button class="dlsw" onclick="refreshCam('${c.id}')">refresh</button>
         </div>
       </div>`).join('');
+}
+
+function openSpillways(){
+  openModal('<div class="mtitle">\uD83D\uDCF7 Spillway cameras</div>'+
+    '<div class="msub">The four Okeechobee Waterway structures the Army Corps publishes a camera at. '+
+    'Still pictures, not video \u2014 and often <b>days out of date</b>, because the link to these '+
+    'structures goes down for long stretches. The red bar on each picture is its capture time.</div>'+
+    SPILLCAMS.map(c=>`<div class="camcard">
+        <img class="camimg" id="cam-${c.id}" alt="${esc(c.code+' '+c.n)}"
+             referrerpolicy="no-referrer" src="${esc(camSrc(c.id))}"
+             onclick="openCam('${c.id}')" onerror="camFailed('${c.id}')">
+        <div class="camfoot">
+          <span><b>${esc(c.code)}</b> ${esc(c.n)} \u00b7 ${esc(c.look)}</span>
+          <button class="dlsw" onclick="refreshCam('${c.id}')">refresh</button>
+        </div>
+      </div>`).join('')+
+    '<button class="btn alt" onclick="closeModal()">Close</button>');
+  paintCamAges();
+}
+
+/* The app told the angler these refresh every five minutes and then showed
+   him one from eleven days earlier. "Updated every 5 minutes (WHEN NETWORK IS
+   AVAILABLE)" is the Corps' own caveat, and the link to a structure out in
+   the Glades is down for days at a time. So: find out how old the picture
+   actually is, and if that cannot be found out, say that rather than implying
+   it is current. */
+async function camAge(id){
+  try{
+    const r=await Promise.race([
+      fetch(SPILLCAM_URL(id),{method:'GET',cache:'no-store'}),
+      new Promise((_,x)=>setTimeout(()=>x(new Error('slow')),9000))]);
+    const lm=r.headers.get('last-modified');
+    if(!lm) return null;
+    const t=new Date(lm).getTime();
+    if(isNaN(t)) return null;
+    return Math.max(0, Date.now()-t);
+  }catch(e){ return null; }    // no CORS header, or offline: unknowable here
+}
+
+function camAgeText(ms){
+  const m=Math.round(ms/60000);
+  if(m<90)  return {t:'Taken '+m+' min ago', stale:false};
+  const h=Math.round(m/60);
+  if(h<36)  return {t:'Taken '+h+' h ago', stale:h>6};
+  const d=Math.round(h/24);
+  return {t:'Taken '+d+' days ago \u2014 this camera is not updating', stale:true};
+}
+
+/* Fill in the age under each camera once we know it. */
+async function paintCamAges(){
+  for(const c of SPILLCAMS){
+    const img=document.getElementById('cam-'+c.id);
+    if(!img) continue;
+    const foot=img.parentElement && img.parentElement.querySelector('.camfoot');
+    if(!foot || foot.querySelector('.camage')) continue;
+    const ms=await camAge(c.id);
+    if(!document.getElementById('cam-'+c.id)) continue;      // they moved on
+    const a=ms==null ? {t:'Age unknown \u2014 read the date stamped on the picture', stale:false}
+                     : camAgeText(ms);
+    foot.insertAdjacentHTML('afterbegin',
+      '<div class="camage'+(a.stale?' camstale':' ')+'">'+esc(a.t)+'</div>');
+  }
 }
 
 function refreshCam(id){
@@ -5199,7 +5275,8 @@ function openCam(id){
   const c=SPILLCAMS.find(x=>x.id===id); if(!c) return;
   openModal('<div class="mtitle">\uD83D\uDCF7 '+esc(c.code+' '+c.n)+'</div>'+
     '<div class="msub">'+esc(c.look.charAt(0).toUpperCase()+c.look.slice(1))+
-    '. A still from the Army Corps, refreshed about every five minutes \u2014 not live video.</div>'+
+    '. An Army Corps still, not video. Check the red bar for when it was taken \u2014 these '+
+    'cameras can be days behind.</div>'+
     '<img class="cambig" src="'+esc(camSrc(id))+'" referrerpolicy="no-referrer" alt="'+esc(c.code)+'">'+
     '<button class="btn" onclick="document.querySelector(\'.cambig\').src=camSrc(\''+id+'\')">Refresh the picture</button>'+
     '<button class="btn alt" onclick="closeModal()">Close</button>');
